@@ -8,3 +8,4 @@ node_modules/
 # local compose backups
 .bak-compose/
 *.bak.*
+.env
