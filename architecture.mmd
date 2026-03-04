@@ -1,0 +1,12 @@
+flowchart LR
+    Developer -->|docker compose (dev)| DevEnv
+    DevEnv --> BackendDev
+    DevEnv --> PostgresDev
+
+    CI -->|build & push| GHCR[(GHCR Image Registry)]
+
+    GHCR -->|pull| ProdEnv
+    ProdEnv --> BackendProd
+    ProdEnv --> PostgresProd
+
+    BackendProd --> Traefik
