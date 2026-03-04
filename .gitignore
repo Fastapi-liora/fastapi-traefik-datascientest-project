@@ -9,3 +9,4 @@ node_modules/
 .bak-compose/
 *.bak.*
 .env
+.env.dev
