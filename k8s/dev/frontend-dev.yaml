@@ -15,10 +15,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        # Nutzt das lokale Image, das du in Minikube gebaut hast
-        image: frontend:latest
-        # WICHTIG: Verhindert, dass K8s im Internet nach dem Image sucht
-        imagePullPolicy: Never
+        image: ghcr.io/luca10112/fastapi-traefik-datascientest-project-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
 ---

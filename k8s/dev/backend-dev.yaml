@@ -15,10 +15,8 @@ spec:
     spec:
       containers:
       - name: backend
-        # Nutzt das lokale Image aus dem Minikube-Speicher
-        image: backend:latest
-        # WICHTIG: Verhindert, dass K8s versucht, das Image aus dem Internet zu laden
-        imagePullPolicy: Never 
+        image: ghcr.io/manqo/fastapi-traefik-datascientest-project-backend:latest
+        imagePullPolicy: Always 
         ports:
         - containerPort: 8000
         # Lädt alle Umgebungsvariablen (DB-Passwort, Host etc.) aus der ConfigMap
