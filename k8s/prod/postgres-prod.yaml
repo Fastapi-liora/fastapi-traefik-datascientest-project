@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-prod
+  namespace: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-prod
+  template:
+    metadata:
+      labels:
+        app: db-prod
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "app"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "psgres_db"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-prod
+  namespace: prod
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: db-prod
