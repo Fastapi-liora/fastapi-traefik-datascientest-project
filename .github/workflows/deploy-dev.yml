@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - "feat/k8s-dev-setup"
 
 permissions:
   contents: read
