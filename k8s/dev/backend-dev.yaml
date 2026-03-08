@@ -14,17 +14,19 @@ spec:
         app: backend
     spec:
       containers:
-      - name: backend
+        - name: backend
+          image: ghcr.io/manqo/fastapi-traefik-datascientest-project-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
 
-        image: ghcr.io/manqo/fastapi-traefik-datascientest-project-backend:latest
+          # Lädt Variablen aus ConfigMap und Secret
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
 
-        imagePullPolicy: Always 
-        ports:
-        - containerPort: 8000
-        # Lädt alle Umgebungsvariablen (DB-Passwort, Host etc.) aus der ConfigMap
-        envFrom:
-        - configMapRef:
-            name: backend-config
 ---
 apiVersion: v1
 kind: Service
@@ -32,8 +34,8 @@ metadata:
   name: backend
   namespace: dev
 spec:
-  ports:
-  - port: 8000
-    targetPort: 8000
   selector:
     app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
