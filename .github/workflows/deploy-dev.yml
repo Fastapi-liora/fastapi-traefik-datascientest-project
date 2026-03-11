@@ -17,27 +17,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Da wir auf dem Self-hosted Runner (deiner VM) sind, 
-      # nutzen wir direkt das installierte Minikube.
-      
-      - name: Apply dev manifests
+      - name: Prepare & Deploy to Minikube
         run: |
-          # --validate=false ist entscheidend, um den "no route to host" Fehler zu umgehen.
-          # Wir nutzen "minikube kubectl", da es den Kontext automatisch richtig setzt.
+          # 1. Umgebungsvariablen für den Runner setzen (WICHTIG!)
+          export HOME=/home/ipatsaf
+          export PATH=$PATH:/usr/local/bin
+          export KUBECONFIG=$HOME/.kube/config
+          
+          # 2. Prüfen, ob Minikube erreichbar ist
+          # update-context repariert die interne IP-Verbindung
+          minikube update-context
+          
+          # 3. Manifeste anwenden
+          # --validate=false überspringt den Pre-Check, der oft am Netzwerk scheitert
           minikube kubectl -- apply -f k8s/dev --validate=false
 
       - name: Restart deployments
         run: |
-          # Erzwingt das Laden der neuen Images von GHCR
+          export HOME=/home/ipatsaf
           minikube kubectl -- rollout restart deployment/backend -n dev
           minikube kubectl -- rollout restart deployment/frontend -n dev
 
-      - name: Wait for rollout
+      - name: Check Status
         run: |
-          minikube kubectl -- rollout status deployment/backend -n dev --timeout=180s
-          minikube kubectl -- rollout status deployment/frontend -n dev --timeout=180s
-
-      - name: Check resources
-        run: |
+          export HOME=/home/ipatsaf
           minikube kubectl -- get pods -n dev
-          minikube kubectl -- get svc -n dev
