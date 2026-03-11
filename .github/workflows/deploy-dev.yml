@@ -24,12 +24,19 @@ jobs:
           export PATH=$PATH:/usr/local/bin
           export KUBECONFIG=$HOME/.kube/config
           
-          # 2. Prüfen, ob Minikube erreichbar ist
-          # update-context repariert die interne IP-Verbindung
+          # 2. Auto-Start: Prüfen, ob Minikube läuft
+          # Wenn nicht "Running", wird der Cluster automatisch gestartet
+          if ! minikube status | grep -q "Running"; then
+            echo "Minikube ist gestoppt. Starte Cluster..."
+            minikube start --driver=docker --memory=2560 --cpus=2
+          fi
+          
+          # 3. Verbindung reparieren
+          # update-context stellt sicher, dass die Kubeconfig zur aktuellen IP passt
           minikube update-context
           
-          # 3. Manifeste anwenden
-          # --validate=false überspringt den Pre-Check, der oft am Netzwerk scheitert
+          # 4. Manifeste anwenden
+          # --validate=false verhindert Netzwerk-Timeouts während der Validierung
           minikube kubectl -- apply -f k8s/dev --validate=false
 
       - name: Restart deployments
