@@ -1,0 +1,69 @@
+# BEFEHL ZUM AUSFÜHREN:
+# ansible-playbook -i inventory.ini setup-vm.yml -K
+
+- name: "Konfiguration der neuen Test-VM"
+  hosts: fastapivm_test
+  become: yes
+  vars:
+    # Verhindert Warnungen bezüglich der Python-Version
+    ansible_python_interpreter: /usr/bin/python3.12
+
+  tasks:
+    - name: "System-Update durchführen"
+      apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: "Docker & Tools installieren"
+      apt:
+        name: 
+          - docker.io
+          - curl
+          - git
+          - socat
+          - conntrack
+        state: present
+
+    - name: "User zur Docker-Gruppe hinzufügen"
+      user:
+        name: ipatsaf
+        groups: docker
+        append: yes
+
+    - name: "Minikube herunterladen"
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: "Kubectl herunterladen"
+      get_url:
+        url: "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: "Prüfen ob Minikube bereits läuft"
+      become: yes
+      become_user: ipatsaf
+      command: minikube status
+      register: minikube_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: "Altes Minikube Profil löschen (wegen Fehlern oder Speicheränderung)"
+      become: yes
+      become_user: ipatsaf
+      command: minikube delete
+      # Wir löschen, wenn minikube nicht "Running" ist, um die neue Config zu erzwingen
+      when: "'Running' not in minikube_status.stdout"
+      ignore_errors: yes
+
+    - name: "Minikube starten"
+      become: yes
+      become_user: ipatsaf
+      # Wir nutzen 2048 (2GB), das ist der stabilste Wert für 4GB VMs
+      command: minikube start --driver=docker --memory=2048 --cpus=2
+      register: minikube_start_result
+      # Starten, wenn es nicht läuft
+      when: "'Running' not in minikube_status.stdout"
