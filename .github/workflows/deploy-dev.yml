@@ -4,48 +4,144 @@ on:
   push:
     branches:
       - dev
-      - "feat/k8s-dev-setup"
 
 permissions:
   contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: fastapi-liora
+  BACKEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend
+  FRONTEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend
 
 jobs:
-  deploy-dev:
+  test:
     runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare & Deploy to Minikube
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        working-directory: ./backend
         run: |
-          # 1. Umgebungsvariablen für den Runner setzen (WICHTIG!)
-          export HOME=/home/ipatsaf
-          export PATH=$PATH:/usr/local/bin
-          export KUBECONFIG=$HOME/.kube/config
-          
-          # 2. Auto-Start: Prüfen, ob Minikube läuft
-          # Wenn nicht "Running", wird der Cluster automatisch gestartet
-          if ! minikube status | grep -q "Running"; then
-            echo "Minikube ist gestoppt. Starte Cluster..."
-            minikube start --driver=docker --memory=2560 --cpus=2
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           fi
-          
-          # 3. Verbindung reparieren
-          # update-context stellt sicher, dass die Kubeconfig zur aktuellen IP passt
-          minikube update-context
-          
-          # 4. Manifeste anwenden
-          # --validate=false verhindert Netzwerk-Timeouts während der Validierung
-          minikube kubectl -- apply -f k8s/dev --validate=false
+          pip install pytest
 
-      - name: Restart deployments
+      - name: Run backend tests
+        working-directory: ./backend
         run: |
-          export HOME=/home/ipatsaf
-          minikube kubectl -- rollout restart deployment/backend -n dev
-          minikube kubectl -- rollout restart deployment/frontend -n dev
+          if [ -d tests ]; then
+            pytest
+          else
+            echo "No backend tests found, skipping."
+          fi
 
-      - name: Check Status
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
         run: |
-          export HOME=/home/ipatsaf
-          minikube kubectl -- get pods -n dev
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  build-and-push:
+    runs-on: self-hosted
+    needs: test
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "image_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build backend image
+        run: |
+          docker build -t $BACKEND_IMAGE:${{ steps.meta.outputs.image_tag }} ./backend
+
+      - name: Build frontend image
+        run: |
+          docker build -t $FRONTEND_IMAGE:${{ steps.meta.outputs.image_tag }} ./frontend
+
+      - name: Push backend image
+        run: |
+          docker push $BACKEND_IMAGE:${{ steps.meta.outputs.image_tag }}
+
+      - name: Push frontend image
+        run: |
+          docker push $FRONTEND_IMAGE:${{ steps.meta.outputs.image_tag }}
+
+  deploy-dev:
+    runs-on: self-hosted
+    needs: build-and-push
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          printf '%s' "${{ secrets.KUBECONFIG_DEV }}" > $HOME/.kube/config-ci
+          chmod 600 $HOME/.kube/config-ci
+          echo "KUBECONFIG=$HOME/.kube/config-ci" >> $GITHUB_ENV
+
+      - name: Apply dev manifests
+        run: |
+          kubectl apply -f k8s/dev
+
+      - name: Update backend image in deployment
+        run: |
+          kubectl set image deployment/backend \
+            backend=$BACKEND_IMAGE:${{ needs.build-and-push.outputs.image_tag }} \
+            -n dev
+
+      - name: Update frontend image in deployment
+        run: |
+          kubectl set image deployment/frontend \
+            frontend=$FRONTEND_IMAGE:${{ needs.build-and-push.outputs.image_tag }} \
+            -n dev
+
+      - name: Wait for backend rollout
+        run: |
+          kubectl rollout status deployment/backend -n dev --timeout=180s
+
+      - name: Wait for frontend rollout
+        run: |
+          kubectl rollout status deployment/frontend -n dev --timeout=180s
+
+      - name: Check resources
+        run: |
+          kubectl get pods -n dev
+          kubectl get svc -n dev
