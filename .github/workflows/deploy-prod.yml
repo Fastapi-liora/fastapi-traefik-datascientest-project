@@ -1,0 +1,153 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: fastapi-liora
+  BACKEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend
+  FRONTEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-backend:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run backend tests
+        run: |
+          echo "➡️ Backend Tests hier aus deinem Dev-Workflow einfügen"
+
+  test-frontend:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run frontend tests
+        run: |
+          echo "➡️ Frontend Tests hier aus deinem Dev-Workflow einfügen"
+
+  build-and-push:
+    runs-on: self-hosted
+    needs:
+      - test-backend
+      - test-frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Build backend image
+        run: |
+          docker build -t $BACKEND_IMAGE:${{ github.sha }} ./backend
+          docker tag $BACKEND_IMAGE:${{ github.sha }} $BACKEND_IMAGE:latest
+
+      - name: Build frontend image
+        run: |
+          docker build -t $FRONTEND_IMAGE:${{ github.sha }} ./frontend
+          docker tag $FRONTEND_IMAGE:${{ github.sha }} $FRONTEND_IMAGE:latest
+
+      - name: Push backend image
+        run: |
+          docker push $BACKEND_IMAGE:${{ github.sha }}
+          docker push $BACKEND_IMAGE:latest
+
+      - name: Push frontend image
+        run: |
+          docker push $FRONTEND_IMAGE:${{ github.sha }}
+          docker push $FRONTEND_IMAGE:latest
+
+  deploy-dev:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: self-hosted
+    needs: build-and-push
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Write kubeconfig (dev)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to dev
+        run: |
+          kubectl apply -f k8s/dev
+
+      - name: Update backend image (dev)
+        run: |
+          kubectl set image deployment/backend \
+            backend=$BACKEND_IMAGE:${{ github.sha }} \
+            -n dev
+
+      - name: Update frontend image (dev)
+        run: |
+          kubectl set image deployment/frontend \
+            frontend=$FRONTEND_IMAGE:${{ github.sha }} \
+            -n dev
+
+      - name: Wait for rollout (dev)
+        run: |
+          kubectl rollout status deployment/backend -n dev --timeout=180s
+          kubectl rollout status deployment/frontend -n dev --timeout=180s
+
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    needs: build-and-push
+
+    environment:
+      name: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Write kubeconfig (prod)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_PROD }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to prod
+        run: |
+          kubectl apply -f k8s/prod
+
+      - name: Update backend image (prod)
+        run: |
+          kubectl set image deployment/backend \
+            backend=$BACKEND_IMAGE:${{ github.sha }} \
+            -n prod
+
+      - name: Update frontend image (prod)
+        run: |
+          kubectl set image deployment/frontend \
+            frontend=$FRONTEND_IMAGE:${{ github.sha }} \
+            -n prod
+
+      - name: Wait for rollout (prod)
+        run: |
+          kubectl rollout status deployment/backend -n prod --timeout=180s
+          kubectl rollout status deployment/frontend -n prod --timeout=180s
