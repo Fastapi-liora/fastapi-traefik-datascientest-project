@@ -118,14 +118,20 @@ jobs:
 
       - name: Wait for backend rollout
         run: |
-          kubectl rollout status deployment/backend -n prod --timeout=180s
+          kubectl rollout status deployment/backend -n prod --timeout=300s
 
       - name: Describe backend deployment after failed rollout
         if: failure()
         run: |
           kubectl describe deployment backend -n prod
+
+      - name: Show pod details
+        if: failure()
+        run: |
+          kubectl get pods -n prod -o wide
           kubectl describe pods -n prod
+          kubectl logs -l app=backend -n prod --tail=100
 
       - name: Wait for frontend rollout
         run: |
-          kubectl rollout status deployment/frontend -n prod --timeout=300s
+          kubectl rollout status deployment/frontend -n prod --timeout=180s
