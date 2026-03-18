@@ -1,9 +1,8 @@
-name: Deploy
+name: Deploy Prod
 
 on:
   push:
     branches:
-      - dev
       - main
 
 permissions:
@@ -17,7 +16,7 @@ env:
   FRONTEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-prod
   cancel-in-progress: false
 
 jobs:
@@ -29,7 +28,7 @@ jobs:
 
       - name: Run backend tests
         run: |
-          echo "➡️ Backend Tests hier aus deinem Dev-Workflow einfügen"
+          echo "Backend-Testschritte aus deploy-dev hier einsetzen"
 
   test-frontend:
     runs-on: self-hosted
@@ -39,7 +38,7 @@ jobs:
 
       - name: Run frontend tests
         run: |
-          echo "➡️ Frontend Tests hier aus deinem Dev-Workflow einfügen"
+          echo "Frontend-Testschritte aus deploy-dev hier einsetzen"
 
   build-and-push:
     runs-on: self-hosted
@@ -73,49 +72,9 @@ jobs:
           docker push $FRONTEND_IMAGE:${{ github.sha }}
           docker push $FRONTEND_IMAGE:latest
 
-  deploy-dev:
-    if: github.ref == 'refs/heads/dev'
-    runs-on: self-hosted
-    needs: build-and-push
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Write kubeconfig (dev)
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      - name: Deploy to dev
-        run: |
-          kubectl apply -f k8s/dev
-
-      - name: Update backend image (dev)
-        run: |
-          kubectl set image deployment/backend \
-            backend=$BACKEND_IMAGE:${{ github.sha }} \
-            -n dev
-
-      - name: Update frontend image (dev)
-        run: |
-          kubectl set image deployment/frontend \
-            frontend=$FRONTEND_IMAGE:${{ github.sha }} \
-            -n dev
-
-      - name: Wait for rollout (dev)
-        run: |
-          kubectl rollout status deployment/backend -n dev --timeout=180s
-          kubectl rollout status deployment/frontend -n dev --timeout=180s
-
   deploy-prod:
-    if: github.ref == 'refs/heads/main'
     runs-on: self-hosted
     needs: build-and-push
-
     environment:
       name: prod
 
@@ -125,29 +84,32 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Write kubeconfig (prod)
+      - name: Write kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_PROD }}" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Deploy to prod
+      - name: Deploy manifests
         run: |
           kubectl apply -f k8s/prod
 
-      - name: Update backend image (prod)
+      - name: Update backend image
         run: |
           kubectl set image deployment/backend \
             backend=$BACKEND_IMAGE:${{ github.sha }} \
             -n prod
 
-      - name: Update frontend image (prod)
+      - name: Update frontend image
         run: |
           kubectl set image deployment/frontend \
             frontend=$FRONTEND_IMAGE:${{ github.sha }} \
             -n prod
 
-      - name: Wait for rollout (prod)
+      - name: Wait for backend rollout
         run: |
           kubectl rollout status deployment/backend -n prod --timeout=180s
+
+      - name: Wait for frontend rollout
+        run: |
           kubectl rollout status deployment/frontend -n prod --timeout=180s
