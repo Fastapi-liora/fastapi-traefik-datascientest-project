@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: dev
+data:
+  # Geändert von "development" auf "local", um Pydantic-Validierung zu erfüllen
+  ENVIRONMENT: "local"
+  DOMAIN: "localhost"
+  
+  # Neue Pflichtfelder für das Backend
+  PROJECT_NAME: "FastAPI Project Dev"
+  FIRST_SUPERUSER: "admin@example.com"
+  FIRST_SUPERUSER_PASSWORD: "fastapi_devops_26"
+  
+  # CORS Einstellungen (Ports für Traefik 8080 und Port-Forwarding 8081 ergänzt)
+  BACKEND_CORS_ORIGINS: "http://localhost:8080,http://localhost:8081,http://localhost:8000,http://localhost,http://localhost:50025"
+  
+  # Datenbank-Verbindung (Das Passwort wurde entfernt, da es jetzt im Secret steht!)
+  POSTGRES_SERVER: "db-dev"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "app"
+  POSTGRES_USER: "postgres"# Letzter Pipeline-Test: Sun Mar  8 08:56:52 PM UTC 2026
