@@ -128,4 +128,4 @@ jobs:
 
       - name: Wait for frontend rollout
         run: |
-          kubectl rollout status deployment/frontend -n prod --timeout=180s
+          kubectl rollout status deployment/frontend -n prod --timeout=300s
