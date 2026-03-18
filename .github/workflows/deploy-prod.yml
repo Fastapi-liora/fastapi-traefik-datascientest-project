@@ -110,9 +110,21 @@ jobs:
             frontend=$FRONTEND_IMAGE:${{ github.sha }} \
             -n prod
 
+      - name: Show prod resources before rollout check
+        run: |
+          kubectl get all -n prod
+          kubectl get pods -n prod -o wide
+          kubectl get rs -n prod
+
       - name: Wait for backend rollout
         run: |
           kubectl rollout status deployment/backend -n prod --timeout=180s
+
+      - name: Describe backend deployment after failed rollout
+        if: failure()
+        run: |
+          kubectl describe deployment backend -n prod
+          kubectl describe pods -n prod
 
       - name: Wait for frontend rollout
         run: |
