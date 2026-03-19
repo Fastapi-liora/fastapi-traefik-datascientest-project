@@ -13,9 +13,12 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+
       containers:
         - name: backend
-          image: ghcr.io/manqo/fastapi-traefik-datascientest-project-backend:latest
+          image: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -35,17 +38,25 @@ spec:
                 name: backend-secret
 
           env:
+
             # Server Setup
+
+
             - name: HOST
               value: "0.0.0.0"
             - name: PORT
               value: "8000"
+
 
             # API Konfiguration
             - name: API_V1_STR
               value: "/v1"
 
             # FastAPI Docs
+
+            - name: API_V1_STR
+              value: "/v1"
+
             - name: DOCS_URL
               value: "/docs"
             - name: OPENAPI_URL
