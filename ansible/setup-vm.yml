@@ -1,12 +1,16 @@
 # BEFEHL ZUM AUSFÜHREN:
 # ansible-playbook -i inventory.ini setup-vm.yml -K
 
-- name: "Konfiguration der neuen Test-VM"
+- name: "Konfiguration der neuen Test-VM inkl. Namespace-Replikation"
   hosts: fastapivm_test
   become: yes
   vars:
     # Verhindert Warnungen bezüglich der Python-Version
     ansible_python_interpreter: /usr/bin/python3.12
+    # Definition der Namespaces, die automatisch repliziert werden sollen
+    k8s_namespaces:
+      - dev
+      - test
 
   tasks:
     - name: "System-Update durchführen"
@@ -31,17 +35,14 @@
         groups: docker
         append: yes
 
-    - name: "Minikube herunterladen"
+    - name: "Minikube & Kubectl herunterladen"
       get_url:
-        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        dest: /usr/local/bin/minikube
+        url: "{{ item.url }}"
+        dest: "/usr/local/bin/{{ item.name }}"
         mode: '0755'
-
-    - name: "Kubectl herunterladen"
-      get_url:
-        url: "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
-        dest: /usr/local/bin/kubectl
-        mode: '0755'
+      loop:
+        - { name: 'minikube', url: 'https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64' }
+        - { name: 'kubectl', url: 'https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl' }
 
     - name: "Prüfen ob Minikube bereits läuft"
       become: yes
@@ -51,11 +52,10 @@
       ignore_errors: yes
       changed_when: false
 
-    - name: "Altes Minikube Profil löschen (wegen Fehlern oder Speicheränderung)"
+    - name: "Altes Minikube Profil löschen (bei Fehlern)"
       become: yes
       become_user: ipatsaf
       command: minikube delete
-      # Wir löschen, wenn minikube nicht "Running" ist, um die neue Config zu erzwingen
       when: "'Running' not in minikube_status.stdout"
       ignore_errors: yes
 
@@ -64,6 +64,20 @@
       become_user: ipatsaf
       # Wir nutzen 2048 (2GB), das ist der stabilste Wert für 4GB VMs
       command: minikube start --driver=docker --memory=2048 --cpus=2
-      register: minikube_start_result
-      # Starten, wenn es nicht läuft
       when: "'Running' not in minikube_status.stdout"
+
+    # --- FIX: Wir nutzen 'shell' statt 'command' für die Pipe ---
+    - name: "Kubernetes Namespaces automatisch erstellen"
+      become: yes
+      become_user: ipatsaf
+      shell: "minikube kubectl -- create namespace {{ item }} --dry-run=client -o yaml | minikube kubectl -- apply -f -"
+      loop: "{{ k8s_namespaces }}"
+      register: ns_result
+      changed_when: "'created' in ns_result.stdout"
+
+    - name: "Projekt-Manifeste automatisch anwenden"
+      become: yes
+      become_user: ipatsaf
+      # Nutzt ebenfalls 'shell' für sicherere Pfadauflösung
+      shell: "minikube kubectl -- apply -f /home/ipatsaf/fastapi-traefik-datascientest-project/k8s/dev/"
+      ignore_errors: yes
