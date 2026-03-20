@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy to prod"
+        required: true
+        default: "latest"
 
 permissions:
   contents: read
@@ -21,6 +27,7 @@ concurrency:
 
 jobs:
   test-backend:
+    if: github.event_name == 'push'
     runs-on: self-hosted
 
     steps:
@@ -31,6 +38,7 @@ jobs:
           echo "Backend-Testschritte aus deploy-dev hier einsetzen"
 
   test-frontend:
+    if: github.event_name == 'push'
     runs-on: self-hosted
 
     steps:
@@ -41,6 +49,7 @@ jobs:
           echo "Frontend-Testschritte aus deploy-dev hier einsetzen"
 
   build-and-push:
+    if: github.event_name == 'push'
     runs-on: self-hosted
     needs:
       - test-backend
@@ -73,13 +82,21 @@ jobs:
           docker push $FRONTEND_IMAGE:latest
 
   deploy-prod:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
-    needs: build-and-push
     environment:
       name: prod
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set deploy tag
+        run: echo "DEPLOY_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+
+      - name: Show selected images
+        run: |
+          echo "Backend image: $BACKEND_IMAGE:$DEPLOY_TAG"
+          echo "Frontend image: $FRONTEND_IMAGE:$DEPLOY_TAG"
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -101,13 +118,13 @@ jobs:
       - name: Update backend image
         run: |
           kubectl set image deployment/backend \
-            backend=$BACKEND_IMAGE:${{ github.sha }} \
+            backend=$BACKEND_IMAGE:$DEPLOY_TAG \
             -n prod
 
       - name: Update frontend image
         run: |
           kubectl set image deployment/frontend \
-            frontend=$FRONTEND_IMAGE:${{ github.sha }} \
+            frontend=$FRONTEND_IMAGE:$DEPLOY_TAG \
             -n prod
 
       - name: Show prod resources before rollout check
