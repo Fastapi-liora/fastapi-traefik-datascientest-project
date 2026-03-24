@@ -70,4 +70,4 @@ def setup_metrics(app: FastAPI) -> None:
 
         return response
 
-    app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False)
+    app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False, tags=["monitoring"])
