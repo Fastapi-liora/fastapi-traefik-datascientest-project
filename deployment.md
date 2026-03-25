@@ -307,3 +307,58 @@ Backend API docs: `https://api.staging.fastapi-project.example.com/docs`
 Backend API base URL: `https://api.staging.fastapi-project.example.com`
 
 Adminer: `https://adminer.staging.fastapi-project.example.com`
+
+## Secret Management (per environment)
+
+Do **not** commit real secrets into Git. Use templates and inject values at deploy time.
+
+### 1) Local development
+
+- Keep real values only in a non-versioned `.env` file.
+- Use `.env.example` as template.
+- Generate new secure values with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+### 2) GitHub Actions / CI
+
+Store sensitive values in **GitHub Secrets** (Repository or Environment level), e.g.:
+
+- `SECRET_KEY`
+- `FIRST_SUPERUSER_PASSWORD`
+- `POSTGRES_PASSWORD`
+- `PROXMOX_API_TOKEN`
+
+Pass Terraform sensitive inputs via environment variables (`TF_VAR_*`), for example:
+
+```bash
+export TF_VAR_proxmox_endpoint="https://pve.example.com:8006/"
+export TF_VAR_proxmox_api_token="$PROXMOX_API_TOKEN"
+export TF_VAR_vm_clone_ssh_public_key="$VM_CLONE_SSH_PUBLIC_KEY"
+```
+
+### 3) Kubernetes
+
+- Use `k8s/dev/backend-secret.example.yaml` as template only.
+- Preferred production workflow: **Sealed Secrets** (or external secret manager).
+- Commit only encrypted `SealedSecret` manifests, never plain `Secret` values.
+
+Example workflow (Bitnami Sealed Secrets):
+
+1. Create a local `Secret` manifest from template with real values.
+2. Encrypt it with `kubeseal` against cluster public cert.
+3. Commit only the generated `SealedSecret` YAML.
+4. Apply in cluster; controller recreates runtime `Secret`.
+
+### 4) Credential rotation (required after cleanup)
+
+Because previous plaintext values were present in repository history, rotate outside the repo immediately:
+
+- DB password
+- API/Proxmox token
+- `SECRET_KEY`
+- first superuser password
+
+After rotation, update only secret stores (GitHub Secrets, vault, Kubernetes sealed secret inputs), not tracked files.
