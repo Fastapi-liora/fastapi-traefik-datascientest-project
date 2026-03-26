@@ -4,29 +4,29 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  workflow_dispatch: #workflow can also get started manually in github
     inputs:
       image_tag:
         description: "Image tag to deploy to prod"
         required: true
-        default: "latest"
+        default: "latest" #the latest images is used for deployment not a specific one
 
 permissions:
-  contents: read
-  packages: write
+  contents: read # workflow can read the repo but not write
+  packages: write # workflow can write new images to the github registry
 
-env:
+env: # location of registry and images
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: fastapi-liora
   BACKEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend
   FRONTEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend
 
-concurrency:
+concurrency: # multiple deployments can run paralell, might not be optimal, "true" might be better to cancel outdated deployments before starting a new one
   group: deploy-prod
   cancel-in-progress: false
 
 jobs:
-  test-backend:
+  test-backend: # deploy-dev includes tests in case there are some in the testfolder here in deploy-prod tests are not yet run
     if: github.event_name == 'push'
     runs-on: self-hosted
 
@@ -51,14 +51,14 @@ jobs:
   build-and-push:
     if: github.event_name == 'push'
     runs-on: self-hosted
-    needs:
+    needs: # jobs that need to be finished first
       - test-backend
       - test-frontend
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to GHCR
+      - name: Login to GHCR #Authorization
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
       - name: Build backend image
@@ -82,26 +82,26 @@ jobs:
           docker push $FRONTEND_IMAGE:latest
 
   deploy-prod:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: self-hosted
+    if: github.event_name == 'workflow_dispatch' # manual start only
+    runs-on: self-hosted # runs on vm
     environment:
-      name: prod
+      name: prod # mvp we use only 1 environment for the pipelines and a shared secret
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set deploy tag
-        run: echo "DEPLOY_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+        run: echo "DEPLOY_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV # default is "latest"
 
-      - name: Show selected images
+      - name: Show selected images # creates log files which images get deployed
         run: |
           echo "Backend image: $BACKEND_IMAGE:$DEPLOY_TAG"
           echo "Frontend image: $FRONTEND_IMAGE:$DEPLOY_TAG"
 
-      - name: Set up kubectl
+      - name: Set up kubectl # installs kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Write kubeconfig
+      - name: Write kubeconfig # runner gets access to the cluster using github secrets to deploy
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
@@ -109,13 +109,13 @@ jobs:
 
       - name: Check cluster access
         run: |
-          kubectl get ns
+          kubectl get ns # lists the existing namespaces
 
-      - name: Deploy manifests
+      - name: Deploy manifests #reads and applies yamls from the kubernetes manifests
         run: |
           kubectl apply -f k8s/prod
 
-      - name: Update backend image
+      - name: Update backend image #deployment
         run: |
           kubectl set image deployment/backend \
             backend=$BACKEND_IMAGE:$DEPLOY_TAG \
@@ -127,7 +127,7 @@ jobs:
             frontend=$FRONTEND_IMAGE:$DEPLOY_TAG \
             -n prod
 
-      - name: Show prod resources before rollout check
+      - name: Show prod resources before rollout check # logs
         run: |
           kubectl get all -n prod
           kubectl get pods -n prod -o wide
@@ -137,7 +137,7 @@ jobs:
         run: |
           kubectl rollout status deployment/backend -n prod --timeout=300s
 
-      - name: Describe backend deployment after failed rollout
+      - name: Describe backend deployment after failed rollout # log
         if: failure()
         run: |
           kubectl describe deployment backend -n prod
