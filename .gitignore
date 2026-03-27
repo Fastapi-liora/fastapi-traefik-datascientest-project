@@ -30,4 +30,5 @@ dist/
 
 .DS_Store
 .idea/
-.vscode/
+.vscode/backend/app/tests_backup/
+backend/app/tests_backup/
