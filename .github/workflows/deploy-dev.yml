@@ -33,13 +33,12 @@ jobs:
         run: |
           pip install uv
           uv sync --dev
-          uv pip install pytest-cov
 
       - name: Run backend tests
         working-directory: ./backend
         run: |
-          if [ -f app/tests/crud/test_user.py ]; then
-            uv run pytest app/tests/crud/test_user.py
+          if [ -f mvp_tests/test_smoke.py ]; then
+            uv run pytest -c /dev/null mvp_tests/test_smoke.py
           else
             echo "No MVP backend test found, skipping."
           fi
