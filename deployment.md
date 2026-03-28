@@ -362,3 +362,48 @@ Because previous plaintext values were present in repository history, rotate out
 - first superuser password
 
 After rotation, update only secret stores (GitHub Secrets, vault, Kubernetes sealed secret inputs), not tracked files.
+
+## Kubernetes-Umgebungen `dev` vs. `prod`
+
+Die Kubernetes-Manifeste sind jetzt strikt getrennt unter:
+
+- `k8s/dev/` für Branch-Deployments aus `dev`
+- `k8s/prod/` für Release-Deployments (`release.published`)
+
+### Unterschiede in Variablen und Werten
+
+| Bereich | Dev (`k8s/dev`) | Prod (`k8s/prod`) |
+|---|---|---|
+| Namespace | `dev` | `prod` |
+| Backend Image (Manifest-Default) | `...-backend:dev` | `...-backend:prod` |
+| Frontend Image (Manifest-Default) | `...-frontend:dev` | `...-frontend:prod` |
+| Deployment Replikate | Backend `1`, Frontend `1` | Backend `3`, Frontend `3` |
+| Backend Limits | `500m` CPU / `512Mi` RAM | `1000m` CPU / `1Gi` RAM |
+| Backend Requests | `250m` CPU / `256Mi` RAM | `500m` CPU / `512Mi` RAM |
+| Frontend Limits | `250m` CPU / `256Mi` RAM | `500m` CPU / `512Mi` RAM |
+| Frontend Requests | `100m` CPU / `128Mi` RAM | `250m` CPU / `256Mi` RAM |
+| `ENVIRONMENT` | `development` | `production` |
+| `DOMAIN` | `dev.fastapi.local` | `api.example.com` |
+| `POSTGRES_SERVER` | `db-dev` | `db-prod` |
+| Secret `DATABASE_URL` Host | `db-dev` | `db-prod` |
+| Secret `APP_ENV` | `development` | `production` |
+| Ingress Host | `dev.fastapi.local` | `app.example.com` |
+| Ingress Entrypoint | `web` | `websecure` |
+
+### Label- und Selector-Konvention
+
+In beiden Umgebungen werden konsistent diese Labels verwendet:
+
+- `app.kubernetes.io/name: fastapi-traefik-datascientest-project`
+- `app.kubernetes.io/component: backend|frontend|edge`
+- `app.kubernetes.io/part-of: platform`
+- `app.kubernetes.io/environment: dev|prod`
+- `app.kubernetes.io/managed-by: github-actions`
+
+Die `spec.selector.matchLabels` in Deployments und die Service-Selector referenzieren denselben Label-Satz (`name`, `component`, `environment`), sodass Pod-Discovery zwischen den Umgebungen deterministisch bleibt.
+
+### CI/CD-Zielzuordnung
+
+- Workflow `.github/workflows/deploy-dev.yml` rollt **nur** bei Push auf Branch `dev` nach Namespace `dev` aus.
+- Workflow `.github/workflows/deploy-production.yml` rollt **nur** bei `release.published` nach Namespace `prod` aus.
+- Beide Workflows wenden zuerst die jeweiligen Verzeichnis-Manifeste (`k8s/dev` oder `k8s/prod`) an und aktualisieren danach die Images per Tag (`sha` für dev, Release-Tag für prod).
