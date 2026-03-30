@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - alertmanager.monitoring.svc.cluster.local:9093
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090
+
+      - job_name: backend
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - backend.dev.svc.cluster.local:8000
+              - backend.staging.svc.cluster.local:8000
+              - backend.prod.svc.cluster.local:8000
+
+      - job_name: blackbox-db
+        metrics_path: /probe
+        params:
+          module: [tcp_connect]
+        static_configs:
+          - targets:
+              - db-dev.dev.svc.cluster.local:5432
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter.monitoring.svc.cluster.local:9115
+
+  alert-rules.yml: |
+    groups:
+      - name: backend-baseline-alerts
+        rules:
+          - alert: BackendDown
+            expr: up{job="backend"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Backend endpoint is unavailable"
+              description: "Prometheus can no longer scrape {{ $labels.instance }}."
+
+          - alert: BackendHighErrorRate
+            expr: |
+              (
+                sum(rate(app_http_requests_total{job="backend",status=~"5.."}[5m]))
+                /
+                clamp_min(sum(rate(app_http_requests_total{job="backend"}[5m])), 0.001)
+              ) > 0.05
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backend 5xx error rate is above 5%"
+              description: "Investigate elevated 5xx responses on {{ $labels.instance }}."
+
+          - alert: BackendRestartSpike
+            expr: changes(app_uptime_seconds{job="backend"}[15m]) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backend restart spike detected"
+              description: "app_uptime_seconds changed more than twice within 15 minutes for {{ $labels.instance }}."
+
+          - alert: DatabaseUnreachable
+            expr: probe_success{job="blackbox-db"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Database TCP endpoint is unreachable"
+              description: "Blackbox probe cannot connect to {{ $labels.instance }}."
