@@ -3,6 +3,90 @@
 <a href="https://github.com/fastapi/full-stack-fastapi-template/actions?query=workflow%3ATest" target="_blank"><img src="https://github.com/fastapi/full-stack-fastapi-template/workflows/Test/badge.svg" alt="Test"></a>
 <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/fastapi/full-stack-fastapi-template" target="_blank"><img src="https://coverage-badge.samuelcolvin.workers.dev/fastapi/full-stack-fastapi-template.svg" alt="Coverage"></a>
 
+## Architektur
+
+![Architekturdiagramm](img/architecture-overview.svg)
+
+Die Plattform ist als containerisierte Full-Stack-Anwendung aufgebaut:
+- **Frontend (React/Vite)** liefert die Web-UI und spricht die Backend-API.
+- **Backend (FastAPI)** kapselt Business-Logik, Authentifizierung und Metriken.
+- **PostgreSQL** stellt persistente Datenhaltung bereit.
+- **Traefik/Kubernetes Ingress** übernimmt Routing/TLS-Termination.
+- **Monitoring-Stack** (Prometheus + Grafana) sammelt und visualisiert Laufzeitmetriken.
+
+## Tech-Stack
+
+- **Backend:** FastAPI, SQLModel, Pydantic, PostgreSQL
+- **Frontend:** React, TypeScript, Vite, Chakra UI
+- **Platform/Infra:** Docker Compose (lokal), Kubernetes (dev/staging/prod), Traefik
+- **Qualität & Security:** Pytest, Playwright, CodeQL, Trivy
+- **Delivery:** GitHub Actions, GHCR
+
+## Setup
+
+1. Repository klonen.
+2. Umgebungsvariablen in `.env`/Secrets setzen (u. a. `SECRET_KEY`, `POSTGRES_PASSWORD`).
+3. Lokale Entwicklungsumgebung mit Docker Compose starten.
+4. Optional: Monitoring-Stack zusätzlich starten.
+
+Vertiefung:
+- Deployment/Setup: [deployment.md](./deployment.md)
+- Monitoring lokal: [monitoring/README.md](./monitoring/README.md)
+
+## Dev/Prod-Deployment
+
+- **Development:** Deploy nach `k8s/dev` (Namespace `dev`) über GitHub Actions.
+- **Staging:** Deploy nach `k8s/staging` (Namespace `staging`) über dedizierten Workflow.
+- **Production:** Deploy nach `k8s/prod` (Namespace `prod`) mit Approval-Gate.
+
+Vertiefung: [deployment.md](./deployment.md)
+
+## CI/CD
+
+CI/CD basiert auf GitHub Actions mit den Kernschritten:
+1. Build (Backend/Frontend)
+2. Tests
+3. Security-Scans
+4. Push nach GHCR
+5. Deployment nach Kubernetes (dev/staging/prod)
+
+Vertiefung: [deployment.md](./deployment.md)
+
+## Monitoring
+
+- Prometheus sammelt Applikations- und Infrastrukturmetriken.
+- Grafana stellt Dashboards für Betrieb und Fehleranalyse bereit.
+
+Vertiefung: [monitoring/README.md](./monitoring/README.md)
+
+## Security
+
+- Security Scans via CodeQL und Trivy in CI.
+- Baseline-Policies und Prozessbeschreibung in der Security-Policy.
+
+Vertiefung: [SECURITY.md](./SECURITY.md)
+
+## DR (Disaster Recovery)
+
+DR-Runbooks inkl. Backup/Restore und RTO/RPO sind dokumentiert in:
+- [DR.md](./DR.md)
+- [deployment.md (DR-Abschnitt)](./deployment.md#disaster-recovery-dr--runbooks)
+
+## Compliance-Checkliste (Requirement 1–10)
+
+| Requirement | Nachweis/Artefakt |
+|---|---|
+| Requirement 1: Dokumentierte Zielarchitektur | [README Architektur](#architektur), [Architekturdiagramm](./img/architecture-overview.svg) |
+| Requirement 2: Klare Technologieauswahl | [README Tech-Stack](#tech-stack) |
+| Requirement 3: Reproduzierbares Setup | [README Setup](#setup), [deployment.md](./deployment.md) |
+| Requirement 4: Trennung Dev/Prod Deployment | [README Dev/Prod-Deployment](#devprod-deployment), [`k8s/dev`](./k8s/dev), [`k8s/prod`](./k8s/prod) |
+| Requirement 5: CI/CD definiert | [README CI/CD](#cicd), [Workflow-Dokumentation in deployment.md](./deployment.md) |
+| Requirement 6: Monitoring nachweisbar | [README Monitoring](#monitoring), [monitoring/README.md](./monitoring/README.md) |
+| Requirement 7: Security-Governance dokumentiert | [README Security](#security), [SECURITY.md](./SECURITY.md) |
+| Requirement 8: Disaster Recovery dokumentiert | [README DR](#dr-disaster-recovery), [DR.md](./DR.md), [deployment.md DR](./deployment.md#disaster-recovery-dr--runbooks) |
+| Requirement 9: Infrastruktur als Code/Manifeste | [`k8s/`](./k8s), [`main.tf`](./main.tf) |
+| Requirement 10: Nachvollziehbare Betriebsdokumentation | [deployment.md](./deployment.md), [monitoring/README.md](./monitoring/README.md), [SECURITY.md](./SECURITY.md), [DR.md](./DR.md) |
+
 ## Technology Stack and Features
 
 - ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.

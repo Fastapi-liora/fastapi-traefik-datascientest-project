@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920">
+  <defs>
+    <style>
+      .title { font: 700 26px Arial, sans-serif; fill: #0f172a; }
+      .section { font: 700 18px Arial, sans-serif; fill: #111827; }
+      .label { font: 14px Arial, sans-serif; fill: #111827; }
+      .small { font: 12px Arial, sans-serif; fill: #334155; }
+      .box { rx: 10; ry: 10; stroke-width: 2; }
+      .arrow { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#334155" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="920" fill="#f8fafc" />
+  <text x="40" y="45" class="title">Systemarchitektur: App, CI/CD, Infrastruktur und Kubernetes</text>
+
+  <!-- Users -->
+  <rect x="40" y="90" width="220" height="90" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="60" y="125" class="section">Nutzer</text>
+  <text x="60" y="152" class="label">Browser / API Consumer</text>
+
+  <!-- Edge -->
+  <rect x="320" y="80" width="320" height="120" class="box" fill="#e2e8f0" stroke="#64748b"/>
+  <text x="340" y="112" class="section">Ingress / Edge</text>
+  <text x="340" y="138" class="label">Traefik / K8s Ingress</text>
+  <text x="340" y="162" class="small">TLS, Routing, Host Rules</text>
+
+  <!-- Kubernetes Cluster -->
+  <rect x="700" y="60" width="650" height="520" class="box" fill="#ecfeff" stroke="#0891b2"/>
+  <text x="720" y="92" class="section">Kubernetes Cluster</text>
+
+  <!-- Namespaces -->
+  <rect x="730" y="115" width="185" height="130" class="box" fill="#ccfbf1" stroke="#0f766e"/>
+  <text x="748" y="142" class="label">Namespace dev</text>
+  <text x="748" y="165" class="small">k8s/dev</text>
+
+  <rect x="930" y="115" width="185" height="130" class="box" fill="#ccfbf1" stroke="#0f766e"/>
+  <text x="948" y="142" class="label">Namespace staging</text>
+  <text x="948" y="165" class="small">k8s/staging</text>
+
+  <rect x="1130" y="115" width="185" height="130" class="box" fill="#ccfbf1" stroke="#0f766e"/>
+  <text x="1148" y="142" class="label">Namespace prod</text>
+  <text x="1148" y="165" class="small">k8s/prod</text>
+
+  <!-- App components -->
+  <rect x="760" y="280" width="230" height="120" class="box" fill="#fef9c3" stroke="#ca8a04"/>
+  <text x="778" y="310" class="label">Frontend Pod</text>
+  <text x="778" y="335" class="small">React + Nginx</text>
+
+  <rect x="1020" y="280" width="230" height="120" class="box" fill="#fef9c3" stroke="#ca8a04"/>
+  <text x="1038" y="310" class="label">Backend Pod</text>
+  <text x="1038" y="335" class="small">FastAPI + Metrics</text>
+
+  <rect x="890" y="430" width="230" height="120" class="box" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="908" y="460" class="label">PostgreSQL</text>
+  <text x="908" y="485" class="small">Persistent Storage</text>
+
+  <!-- Monitoring -->
+  <rect x="40" y="300" width="600" height="280" class="box" fill="#f1f5f9" stroke="#475569"/>
+  <text x="60" y="332" class="section">Monitoring</text>
+
+  <rect x="70" y="360" width="250" height="95" class="box" fill="#d9f99d" stroke="#65a30d"/>
+  <text x="90" y="392" class="label">Prometheus</text>
+  <text x="90" y="416" class="small">Scrape /metrics</text>
+
+  <rect x="350" y="360" width="250" height="95" class="box" fill="#fde68a" stroke="#d97706"/>
+  <text x="370" y="392" class="label">Grafana</text>
+  <text x="370" y="416" class="small">Dashboards & Alerts</text>
+
+  <!-- CI/CD -->
+  <rect x="40" y="620" width="1310" height="250" class="box" fill="#eef2ff" stroke="#4f46e5"/>
+  <text x="60" y="652" class="section">CI/CD & Infrastruktur</text>
+
+  <rect x="70" y="680" width="220" height="90" class="box" fill="#e0e7ff" stroke="#4338ca"/>
+  <text x="88" y="712" class="label">GitHub Repository</text>
+  <text x="88" y="736" class="small">Code + Manifests</text>
+
+  <rect x="320" y="680" width="250" height="90" class="box" fill="#e0e7ff" stroke="#4338ca"/>
+  <text x="338" y="712" class="label">GitHub Actions</text>
+  <text x="338" y="736" class="small">Build, Test, Security Scan</text>
+
+  <rect x="600" y="680" width="200" height="90" class="box" fill="#ddd6fe" stroke="#6d28d9"/>
+  <text x="618" y="712" class="label">GHCR</text>
+  <text x="618" y="736" class="small">Container Registry</text>
+
+  <rect x="830" y="680" width="250" height="90" class="box" fill="#e0f2fe" stroke="#0369a1"/>
+  <text x="848" y="712" class="label">Deploy Workflows</text>
+  <text x="848" y="736" class="small">dev / staging / prod</text>
+
+  <rect x="1110" y="680" width="220" height="90" class="box" fill="#dcfce7" stroke="#15803d"/>
+  <text x="1128" y="712" class="label">Terraform / IaC</text>
+  <text x="1128" y="736" class="small">main.tf + Cloud Infra</text>
+
+  <!-- Arrows -->
+  <path d="M260 135 L320 135" class="arrow"/>
+  <path d="M640 140 L760 140" class="arrow"/>
+  <path d="M870 245 L870 280" class="arrow"/>
+  <path d="M1080 245 L1135 280" class="arrow"/>
+  <path d="M990 340 L1020 340" class="arrow"/>
+  <path d="M1135 400 L1040 430" class="arrow"/>
+  <path d="M200 455 L760 340" class="arrow"/>
+  <path d="M320 405 L350 405" class="arrow"/>
+  <path d="M460 455 L1020 340" class="arrow"/>
+
+  <path d="M290 725 L320 725" class="arrow"/>
+  <path d="M570 725 L600 725" class="arrow"/>
+  <path d="M800 725 L830 725" class="arrow"/>
+  <path d="M1080 725 L1130 725" class="arrow"/>
+  <path d="M955 680 L1025 580" class="arrow"/>
+</svg>
