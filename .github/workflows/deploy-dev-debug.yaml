@@ -1,7 +1,9 @@
 name: Deploy Dev Debug tests
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - dev
 
 permissions:
   contents: read
