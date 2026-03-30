@@ -1,0 +1,102 @@
+name: Security Scans
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "k8s/**"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - ".github/workflows/security-scans.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "k8s/**"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - ".github/workflows/security-scans.yml"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL (Code & Dependency Analysis)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - python
+          - javascript-typescript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  trivy-source-scan:
+    name: Trivy Source & Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+  trivy-image-scan:
+    name: Trivy Container Scan (Backend/Frontend)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_name: backend
+            context: ./backend
+          - image_name: frontend
+            context: ./frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.image_name }} image
+        run: docker build -t local/${{ matrix.image_name }}:scan ${{ matrix.context }}
+
+      - name: Trivy image scan (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: local/${{ matrix.image_name }}:scan
+          format: table
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+          exit-code: "1"
