@@ -41,13 +41,7 @@ jobs:
         working-directory: ./backend
         run: uv sync --dev
 
-      - name: Wait for Postgres
-        run: |
-          until pg_isready -h localhost -p 5433 -U postgres -d app; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
-
+      
       - name: Run Mohamed user test only
         working-directory: ./backend
         env:
