@@ -56,8 +56,11 @@ Vertiefung: [deployment.md](./deployment.md)
 
 - Prometheus sammelt Applikations- und Infrastrukturmetriken.
 - Grafana stellt Dashboards für Betrieb und Fehleranalyse bereit.
+- Alertmanager definiert Alarmwege für `default` und `critical` Eskalation.
 
-Vertiefung: [monitoring/README.md](./monitoring/README.md)
+Monitoring-Setup und Betriebsablauf:
+- Kubernetes-Deployment + Runbook: [monitoring/README.md#1-k8s-betriebsmodell-verbindlich-für-cluster-betrieb](./monitoring/README.md#1-k8s-betriebsmodell-verbindlich-für-cluster-betrieb)
+- Metrikquellen, Dashboards, Alarmwege: [monitoring/README.md](./monitoring/README.md)
 
 ## Security
 

@@ -1,45 +1,96 @@
-# Monitoring (Prometheus + Grafana)
+# Monitoring (Prometheus + Grafana + Alertmanager)
 
-Dieses Setup ist bewusst minimal und für lokale Entwicklung gedacht. Es basiert auf Konfiguration statt manueller UI-Klicks.
+Dieses Repository unterstützt Monitoring in zwei verbindlichen Betriebsmodellen:
 
-## Enthalten
+1. **Lokal/Compose** für Entwicklung und Tests.
+2. **Kubernetes-kompatibel** über Manifeste in `k8s/monitoring`.
 
-- Prometheus mit statischer Konfiguration (`monitoring/prometheus/prometheus.yml`)
-- Grafana mit Provisioning für
-  - Prometheus-Datasource
-  - vordefiniertes Dashboard `Backend Overview`
-- FastAPI-Metrik-Endpunkt unter `GET /metrics`
+## 1) K8s-Betriebsmodell (verbindlich für Cluster-Betrieb)
 
-## Starten
+Die folgenden Manifeste stellen den Monitoring-Stack bereit:
 
-Aus dem Repo-Root:
+- `k8s/monitoring/monitoring-namespace.yaml`
+- `k8s/monitoring/prometheus-config.yaml`
+- `k8s/monitoring/prometheus-deployment.yaml`
+- `k8s/monitoring/blackbox-exporter.yaml`
+- `k8s/monitoring/alertmanager.yaml`
+- `k8s/monitoring/grafana.yaml`
+
+### Deployment
+
+```bash
+kubectl apply -f k8s/monitoring/monitoring-namespace.yaml
+kubectl apply -f k8s/monitoring/blackbox-exporter.yaml
+kubectl apply -f k8s/monitoring/alertmanager.yaml
+kubectl apply -f k8s/monitoring/prometheus-config.yaml
+kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
+kubectl apply -f k8s/monitoring/grafana.yaml
+```
+
+### Betriebsablauf (Runbook-Basis)
+
+1. **Stack ausrollen** (Befehle oben).
+2. **Targets prüfen** in Prometheus (`/targets`): `prometheus`, `backend`, `blackbox-db` müssen `UP` sein.
+3. **Alerts prüfen** in Prometheus (`/alerts`) und Alertmanager (`/#/alerts`).
+4. **Dashboards prüfen** in Grafana (Datasource vorhanden, Dashboard importiert/verfügbar).
+5. **Alarmierung testen** (z. B. Backend-Service kurzfristig stoppen und `BackendDown` auslösen).
+
+## 2) Metrikquellen
+
+### Applikationsmetriken (FastAPI Backend)
+
+Quelle: `GET /metrics` im Backend.
+
+Beispiele:
+- `app_http_requests_total{method,path,status}`
+- `app_http_requests_sum`
+- `app_uptime_seconds`
+
+### Infrastruktur-/Erreichbarkeitsmetriken
+
+- `up{job="backend"}` aus Prometheus-Scrape.
+- `probe_success{job="blackbox-db"}` aus Blackbox Exporter (TCP-Check auf PostgreSQL-Endpunkt).
+
+## 3) Basis-Alerts (verbindlich)
+
+Die Alert-Regeln liegen in `k8s/monitoring/prometheus-config.yaml` und decken mindestens ab:
+
+1. **Verfügbarkeit**: `BackendDown`
+2. **Error-Rate**: `BackendHighErrorRate` (5xx-Anteil > 5% über 10 Minuten)
+3. **Restart-Spikes**: `BackendRestartSpike` (häufige Uptime-Resets)
+4. **DB-Erreichbarkeit**: `DatabaseUnreachable` (TCP-Probe fehlgeschlagen)
+
+## 4) Dashboards
+
+- Standard-Dashboard-Datei: `monitoring/grafana/dashboards/backend-overview.json`
+- Provisioning-Dateien:
+  - `monitoring/grafana/provisioning/datasources/datasource.yml`
+  - `monitoring/grafana/provisioning/dashboards/dashboards.yml`
+
+> Hinweis: Im Kubernetes-Setup wird Grafana mit Provisioning für die Prometheus-Datasource ausgeliefert. Das Dashboard kann über den UI-Import aus `monitoring/grafana/dashboards/backend-overview.json` oder via erweitertes ConfigMap-Provisioning hinterlegt werden.
+
+## 5) Alarmwege
+
+Alertmanager ist als zentraler Router vorgesehen:
+
+- **default** → `http://alert-router.monitoring.svc.cluster.local:8080/alerts/default`
+- **critical** → `http://alert-router.monitoring.svc.cluster.local:8080/alerts/critical`
+
+Empfohlene Anbindung des `alert-router`:
+- `default`: Team-Kanal (z. B. Slack/Teams)
+- `critical`: On-Call/Pager (z. B. PagerDuty/Opsgenie)
+
+Damit sind Eskalationspfade dokumentiert und technisch in der Alertmanager-Konfiguration verankert.
+
+## 6) Lokaler Betrieb mit Docker Compose
+
+Für lokale Entwicklung:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 ```
 
-## Prüfen
-
-1. **Backend-Metriken erreichbar**
-
-```bash
-curl http://localhost:8000/metrics
-```
-
-Erwartung: Text im Prometheus-Format mit Metriken wie `app_http_requests_total`.
-
-2. **Prometheus läuft und scrapt**
-
-- UI: http://localhost:9090/targets
-- Erwartung: Jobs `prometheus` und `backend` stehen auf `UP`.
-
-3. **Grafana läuft und Dashboard ist vorprovisioniert**
-
-- UI: http://localhost:3000
-- Login: `admin` / `admin`
-- Erwartung: Dashboard **FastAPI / Backend Overview** ist direkt verfügbar.
-
-## Hinweise
-
-- Das Dashboard zeigt u. a. die Request-Rate nach Route/Status, Gesamtanzahl Requests und Backend-Uptime.
-- Zugangsdaten sind lokale Development-Defaults und sollten außerhalb lokal/dev angepasst werden.
+Prüfen:
+- Backend-Metriken: `curl http://localhost:8000/metrics`
+- Prometheus Targets: `http://localhost:9090/targets`
+- Grafana: `http://localhost:3000` (`admin` / `admin`)
