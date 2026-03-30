@@ -407,3 +407,182 @@ Die `spec.selector.matchLabels` in Deployments und die Service-Selector referenz
 - Workflow `.github/workflows/deploy-dev.yml` rollt **nur** bei Push auf Branch `dev` nach Namespace `dev` aus.
 - Workflow `.github/workflows/deploy-production.yml` rollt **nur** bei `release.published` nach Namespace `prod` aus.
 - Beide Workflows wenden zuerst die jeweiligen Verzeichnis-Manifeste (`k8s/dev` oder `k8s/prod`) an und aktualisieren danach die Images per Tag (`sha` für dev, Release-Tag für prod).
+
+## Disaster Recovery (DR) – Runbooks
+
+Dieses Kapitel definiert verbindliche Runbooks für Ausfälle in Kubernetes- und Infrastruktur-Betrieb.
+
+### 1) Backup-Strategie (Datenbank + Persistent Volumes)
+
+#### 1.1 PostgreSQL-Backups
+
+- **Täglich 02:00 UTC**: logischer Full-Backup via `pg_dump` (komprimiert).
+- **Alle 15 Minuten**: WAL-Archivierung für Point-in-Time-Recovery (PITR).
+- **Aufbewahrung**:
+  - Tages-Backups: **14 Tage**
+  - Wochen-Backups (Sonntag): **8 Wochen**
+  - Monats-Backups (1. Tag): **12 Monate**
+- **Ablage**: externer Objektspeicher (S3-kompatibel) mit Bucket-Versionierung und Server-Side-Encryption.
+- **Integritätsprüfung**: nach jedem Upload Checksum-Verifikation (z. B. SHA256) und Job-Status in Monitoring.
+
+Beispiel-Kommandos (ausgeführt durch CronJob/Backup-Job):
+
+```bash
+pg_dump --format=custom --no-owner --no-privileges \
+  --dbname="$DATABASE_URL" \
+  | gzip > "/backup/db/app_$(date +%F_%H%M).dump.gz"
+```
+
+```bash
+pg_restore --list "/backup/db/app_YYYY-MM-DD_HHMM.dump.gz" >/dev/null
+```
+
+#### 1.2 Persistent-Volume-Backups
+
+- **Täglich 03:00 UTC**: Snapshot aller produktiven PVCs (Datei-Uploads, Reports, sonstige stateful Artefakte).
+- **Aufbewahrung**:
+  - tägliche Snapshots: **7 Tage**
+  - wöchentliche Snapshots: **6 Wochen**
+- **Technik**: CSI VolumeSnapshots oder Storage-Provider-Snapshots (je nach Cluster).
+- **Wiederherstellungspunkt** wird pro Snapshot versioniert dokumentiert (Snapshot-ID + Timestamp).
+
+#### 1.3 Restore-Tests (verpflichtend)
+
+- **Monatlich (1x)**: vollständiger Restore-Test in isolierter `dr-test` Namespace/Umgebung.
+- **Pro Quartal (1x)**: kombinierter Restore-Test (DB + PV + Anwendung) mit Smoke-Test.
+- **Erfolgskriterium**: Applikation startet, Healthchecks OK, Login + kritischer Geschäftsvorgang erfolgreich.
+- **Nachweis**: Protokoll mit Zeitpunkt, verwendeten Backups/Snapshots, Dauer und Ergebnis.
+
+---
+
+### 2) Recovery bei Pod-/Node-Ausfall inkl. RTO/RPO
+
+#### 2.1 Zielwerte
+
+- **Pod-Ausfall**: `RTO <= 10 Minuten`, `RPO <= 15 Minuten`
+- **Node-Ausfall**: `RTO <= 30 Minuten`, `RPO <= 15 Minuten`
+- **Region-/Cluster-kompletter Ausfall (falls nur Single-Cluster)**: `RTO <= 4 Stunden`, `RPO <= 24 Stunden`
+
+#### 2.2 Runbook: Pod-Ausfall
+
+1. **Alarm prüfen** (z. B. CrashLoopBackOff, OOMKilled, Readiness Fail).
+2. Zustand erfassen:
+   ```bash
+   kubectl -n prod get pods -o wide
+   kubectl -n prod describe pod <pod-name>
+   kubectl -n prod logs <pod-name> --previous
+   ```
+3. Falls Konfig-/Secret-Fehler: korrigieren und Rollout neu starten.
+   ```bash
+   kubectl -n prod rollout restart deployment/backend
+   ```
+4. Verifizieren:
+   ```bash
+   kubectl -n prod rollout status deployment/backend --timeout=300s
+   ```
+5. API-/Frontend-Healthcheck prüfen und Incident schließen.
+
+#### 2.3 Runbook: Node-Ausfall
+
+1. Node als `NotReady` identifizieren:
+   ```bash
+   kubectl get nodes
+   ```
+2. Workloads sichern und neu verteilen:
+   ```bash
+   kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+   ```
+3. Infrastruktur-Team behebt Node/VM/Host.
+4. Node nach Reparatur wieder aufnehmen:
+   ```bash
+   kubectl uncordon <node-name>
+   ```
+5. Prüfen, ob Replikate + Stateful Workloads wieder stabil laufen:
+   ```bash
+   kubectl -n prod get pods -o wide
+   ```
+
+---
+
+### 3) Rollback-Strategie
+
+#### 3.1 Image-Tagging
+
+- **Dev**: immutable Tag pro Commit-SHA (`:<git-sha>`).
+- **Prod**: immutable Release-Tag (`:vX.Y.Z`) plus optional `:prod` als beweglicher Alias.
+- Niemals auf mutable `:latest` für produktive Rollouts vertrauen.
+
+#### 3.2 Kubernetes Rollback mit `kubectl`
+
+1. Rollout-Historie prüfen:
+   ```bash
+   kubectl -n prod rollout history deployment/backend
+   ```
+2. Auf vorherige Revision zurück:
+   ```bash
+   kubectl -n prod rollout undo deployment/backend
+   ```
+3. Oder gezielt auf Revision:
+   ```bash
+   kubectl -n prod rollout undo deployment/backend --to-revision=<n>
+   ```
+4. Status + Smoke-Test:
+   ```bash
+   kubectl -n prod rollout status deployment/backend --timeout=300s
+   ```
+
+#### 3.3 Helm Rollback (wenn Helm genutzt wird)
+
+```bash
+helm -n prod history fastapi-app
+helm -n prod rollback fastapi-app <revision>
+helm -n prod status fastapi-app
+```
+
+---
+
+### 4) IaC-Reprovisioning mit Terraform (ohne sensitive Daten im Code)
+
+#### 4.1 Grundsätze
+
+- Keine Secrets in `*.tf`, `*.tfvars` im Repo oder in Klartext-Outputs.
+- Sensitive Werte ausschließlich über Secret Store/CI-Variablen (z. B. `TF_VAR_*`).
+- Remote State (z. B. S3 + Locking via DynamoDB oder Terraform Cloud) verpflichtend für Teambetrieb.
+
+#### 4.2 Runbook: Reprovisioning
+
+1. **Terraform initialisieren**:
+   ```bash
+   terraform init -upgrade
+   ```
+2. **Format/Validierung**:
+   ```bash
+   terraform fmt -check
+   terraform validate
+   ```
+3. **Plan erstellen** (mit env-basierten sensitiven Variablen):
+   ```bash
+   terraform plan -out=tfplan
+   ```
+4. **Plan prüfen (Vier-Augen-Prinzip)**.
+5. **Apply exakt aus freigegebenem Plan**:
+   ```bash
+   terraform apply tfplan
+   ```
+6. **Post-Checks**: Ressourcenstatus, Netzwerkpfade, Cluster-Erreichbarkeit, App-Health.
+
+#### 4.3 State-Handling
+
+- Vor Änderungen:
+  ```bash
+  terraform state pull > "state-backup-$(date +%F_%H%M).json"
+  ```
+- Bei Drift:
+  ```bash
+  terraform plan -refresh-only
+  ```
+- Import bestehender Ressourcen:
+  ```bash
+  terraform import <resource_address> <provider_resource_id>
+  ```
+- Kein manuelles Editieren der State-Datei außer im formal freigegebenen Break-Glass-Prozess.
