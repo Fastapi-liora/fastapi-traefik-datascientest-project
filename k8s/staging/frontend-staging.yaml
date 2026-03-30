@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: staging
+  labels:
+    app.kubernetes.io/name: fastapi-traefik-datascientest-project
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/environment: staging
+    app.kubernetes.io/managed-by: github-actions
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fastapi-traefik-datascientest-project
+      app.kubernetes.io/component: frontend
+      app.kubernetes.io/environment: staging
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fastapi-traefik-datascientest-project
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/environment: staging
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: frontend
+          image: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend:staging
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: staging
+  labels:
+    app.kubernetes.io/name: fastapi-traefik-datascientest-project
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/environment: staging
+    app.kubernetes.io/managed-by: github-actions
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fastapi-traefik-datascientest-project
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/environment: staging
+  ports:
+    - port: 80
+      targetPort: 80

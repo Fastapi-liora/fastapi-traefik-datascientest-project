@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: staging
+  labels:
+    app.kubernetes.io/name: fastapi-traefik-datascientest-project
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/environment: staging
+    app.kubernetes.io/managed-by: github-actions
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

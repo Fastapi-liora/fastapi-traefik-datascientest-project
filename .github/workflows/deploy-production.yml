@@ -4,12 +4,14 @@ on:
   release:
     types:
       - published
+  workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
 
 env:
+  DEPLOY_TARGET: kubernetes
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: fastapi-liora
   BACKEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend
@@ -27,10 +29,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set image tag from release
+      - name: Set image tag
         id: meta
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+          else
+            TAG="${GITHUB_SHA::7}"
+          fi
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Log in to GHCR
@@ -48,11 +54,25 @@ jobs:
       - name: Push frontend image
         run: docker push $FRONTEND_IMAGE:${{ steps.meta.outputs.image_tag }}
 
+  approval-gate:
+    name: Production Approval Gate
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: production
+    steps:
+      - name: Await manual approval
+        run: echo "Deployment to production approved via GitHub Environment reviewers."
+
   deploy-prod:
     runs-on:
       - self-hosted
       - production
-    needs: build-and-push
+    needs:
+      - build-and-push
+      - approval-gate
+    environment:
+      name: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

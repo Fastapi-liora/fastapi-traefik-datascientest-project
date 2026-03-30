@@ -224,6 +224,21 @@ Frontend docs: [frontend/README.md](./frontend/README.md).
 
 Deployment docs: [deployment.md](./deployment.md).
 
+## CI/CD Pipeline (Kubernetes as Primary Deploy Target)
+
+Primary deploy target for **all environments** is **Kubernetes** (`k8s/dev`, `k8s/staging`, `k8s/prod`). Docker Compose remains for local development only.
+
+End-to-end delivery flow:
+
+1. **Build** container images (backend + frontend).
+2. **Test** application (automated test stage in dev pipeline).
+3. **Push** images to GHCR.
+4. **Deploy dev** to Kubernetes namespace `dev` via `.github/workflows/deploy-dev.yml`.
+5. **Approval gate** for production via GitHub **Environment** `production` (configure Required Reviewers in repository settings).
+6. **Deploy prod** to Kubernetes namespace `prod` via `.github/workflows/deploy-production.yml` after approval.
+
+Staging deployments (`.github/workflows/deploy-staging.yml`) now also run on Kubernetes namespace `staging` and apply manifests from `k8s/staging`.
+
 ## Development
 
 General development docs: [development.md](./development.md).
