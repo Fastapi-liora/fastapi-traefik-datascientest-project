@@ -239,6 +239,32 @@ End-to-end delivery flow:
 
 Staging deployments (`.github/workflows/deploy-staging.yml`) now also run on Kubernetes namespace `staging` and apply manifests from `k8s/staging`.
 
+
+## Security Scanning & Release Gates
+
+Security checks are implemented in `.github/workflows/security-scans.yml` and run on push/PR, weekly schedule (Monday 03:00 UTC), and manual dispatch.
+
+Implemented scanners:
+
+- **CodeQL** for code/dependency analysis (`python`, `javascript-typescript`).
+- **Trivy (filesystem)** for dependency, secret, and IaC misconfiguration checks.
+- **Trivy (container images)** for backend/frontend image vulnerabilities.
+
+### Fail policy
+
+- Pipeline fails automatically on **CRITICAL** findings in Trivy scans.
+- CodeQL findings are published to GitHub Security for triage and tracked remediation.
+
+### Kubernetes production baseline (RBAC/TLS)
+
+Production baseline requires:
+
+- dedicated ServiceAccounts per workload,
+- disabled service account token automount where API access is unnecessary,
+- TLS-enabled Traefik ingress (`websecure`) with explicit `spec.tls` secret.
+
+See [`SECURITY.md`](./SECURITY.md) for the complete security evidence and handling standard.
+
 ## Development
 
 General development docs: [development.md](./development.md).

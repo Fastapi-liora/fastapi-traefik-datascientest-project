@@ -12,7 +12,12 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-example-com-tls
   rules:
     - host: app.example.com
       http:
