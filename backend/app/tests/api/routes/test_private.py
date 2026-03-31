@@ -8,7 +8,7 @@ from app.models import User
 @pytest.mark.skip(reason="Private endpoint not implemented")
 def test_create_user(client: TestClient, db: Session) -> None:
     r = client.post(
-        f"{settings.API_V1_STR}/private/users/",
+        f"{settings.API_V1_STR}/users/signup/",
         json={
             "email": "pollo@listo.com",
             "password": "password123",
