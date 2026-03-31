@@ -1,0 +1,59 @@
+name: Backend Test Debug 
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  debug-backend-tests:
+    runs-on: self-hosted
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d app"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: uv sync --dev
+
+      
+      - name: Run Mohamed user test only
+        working-directory: ./backend
+        env:
+          PROJECT_NAME: "FastAPI Debug"
+          SECRET_KEY: "debug-secret-key"
+          FIRST_SUPERUSER: "admin@example.com"
+          FIRST_SUPERUSER_PASSWORD: "debugpassword123"
+
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+
+        run: uv run pytest tests/unit/test_users.py -v
