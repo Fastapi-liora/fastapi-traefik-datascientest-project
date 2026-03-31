@@ -49,7 +49,9 @@ jobs:
       - name: Install backend dependencies
         working-directory: ./backend
         run: |
-          pip install fastapi sqlmodel psycopg2-binary python-multipart email-validator python-jose[cryptography] passlib[bcrypt] requests uvicorn
+          # FastAPI und alle Abhängigkeiten
+          pip install fastapi sqlmodel psycopg2-binary python-multipart email-validator python-jose[cryptography] passlib[bcrypt] requests uvicorn httpx
+          # Test-Frameworks
           pip install pytest pytest-cov
 
       - name: Run backend tests
