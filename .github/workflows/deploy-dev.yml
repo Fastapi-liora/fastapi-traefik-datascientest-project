@@ -49,9 +49,7 @@ jobs:
       - name: Install backend dependencies
         working-directory: ./backend
         run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          pip install fastapi sqlmodel psycopg2-binary python-multipart email-validator python-jose[cryptography] passlib[bcrypt] requests uvicorn
           pip install pytest pytest-cov
 
       - name: Run backend tests
