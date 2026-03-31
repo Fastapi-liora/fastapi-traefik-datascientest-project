@@ -1,42 +1,190 @@
-from collections.abc import Generator
+"""
+Pytest configuration and shared fixtures.
+"""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, delete
+from sqlmodel import Session
+from typing import Generator
 
-from app.core.config import settings
-from app.core.db import engine, init_db
 from app.main import app
-from app.models import Item, User
-from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import get_superuser_token_headers
+from app.core.config import settings
+from app.core.db import engine
+from app.models import SQLModel, User
 
 
-@pytest.fixture(scope="session", autouse=True)
-def db() -> Generator[Session, None, None]:
-    with Session(engine) as session:
-        init_db(session)
+# ============================================================================
+# Database Fixtures
+# ============================================================================
+
+@pytest.fixture(scope="session")
+def db_engine():
+    """Return the database engine for testing."""
+    return engine
+
+
+@pytest.fixture(scope="function")
+def db_session(db_engine) -> Generator[Session, None, None]:
+    """Create a fresh database session for each test."""
+    SQLModel.metadata.create_all(db_engine)
+    with Session(db_engine) as session:
         yield session
-        statement = delete(Item)
-        session.execute(statement)
-        statement = delete(User)
-        session.execute(statement)
-        session.commit()
+        session.rollback()
 
 
-@pytest.fixture(scope="module")
-def client() -> Generator[TestClient, None, None]:
-    with TestClient(app) as c:
-        yield c
+# ============================================================================
+# API Client Fixtures
+# ============================================================================
+
+@pytest.fixture
+def client() -> TestClient:
+    """Create a test client for FastAPI app."""
+    return TestClient(app)
 
 
-@pytest.fixture(scope="module")
-def superuser_token_headers(client: TestClient) -> dict[str, str]:
-    return get_superuser_token_headers(client)
-
-
-@pytest.fixture(scope="module")
-def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]:
-    return authentication_token_from_email(
-        client=client, email=settings.EMAIL_TEST_USER, db=db
+@pytest.fixture
+def authenticated_client(client, db_session) -> TestClient:
+    """Create an authenticated test client with a normal user."""
+    # Create a test user
+    user_data = {
+        "email": "testuser@example.com",
+        "password": "testpassword123",
+        "full_name": "Test User"
+    }
+    
+    response = client.post(
+        f"{settings.API_V1_STR}/users/signup",
+        json=user_data
     )
+    
+    # Login to get token
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={
+            "username": "testuser@example.com",
+            "password": "testpassword123"
+        }
+    )
+    token = response.json()["access_token"]
+    client.headers.update({"Authorization": f"Bearer {token}"})
+    return client
+
+
+@pytest.fixture
+def superuser_client(client) -> TestClient:
+    """Create an authenticated superuser client."""
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={
+            "username": settings.FIRST_SUPERUSER,
+            "password": settings.FIRST_SUPERUSER_PASSWORD
+        }
+    )
+    token = response.json()["access_token"]
+    client.headers.update({"Authorization": f"Bearer {token}"})
+    return client
+
+
+# ============================================================================
+# Token Headers Fixtures (für Tests in test_items.py etc.)
+# ============================================================================
+
+@pytest.fixture
+def normal_user_token_headers(client, db_session):
+    """Get token headers for a normal test user."""
+    # Create a test user
+    user_data = {
+        "email": "normaluser@example.com",
+        "password": "normalpass123",
+        "full_name": "Normal User"
+    }
+    
+    response = client.post(
+        f"{settings.API_V1_STR}/users/signup",
+        json=user_data
+    )
+    
+    # Login to get token
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={
+            "username": "normaluser@example.com",
+            "password": "normalpass123"
+        }
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def superuser_token_headers(client):
+    """Get token headers for the superuser."""
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={
+            "username": settings.FIRST_SUPERUSER,
+            "password": settings.FIRST_SUPERUSER_PASSWORD
+        }
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+# ============================================================================
+# Test Data Fixtures
+# ============================================================================
+
+@pytest.fixture
+def sample_item_data():
+    """Sample item data for tests."""
+    return {
+        "title": "Test Item",
+        "description": "This is a test item description",
+        "price": 29.99
+    }
+
+
+@pytest.fixture
+def sample_user_data():
+    """Sample user data for tests."""
+    return {
+        "email": "newuser@example.com",
+        "password": "newpassword123",
+        "full_name": "New User"
+    }
+
+
+# ============================================================================
+# Mock Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_email_service(monkeypatch):
+    """Mock email sending for tests that don't need real email."""
+    def mock_send_email(*args, **kwargs):
+        return True
+    
+    monkeypatch.setattr("app.utils.send_email", mock_send_email)
+    return mock_send_email
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+@pytest.fixture
+def create_test_user(db_session):
+    """Factory fixture to create test users on demand."""
+    def _create_user(email, password="testpass123", full_name="Test User"):
+        user = User(
+            email=email,
+            full_name=full_name,
+            hashed_password="fake_hash",
+            is_active=True,
+            is_superuser=False
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+    return _create_user
