@@ -83,7 +83,7 @@ jobs:
             # Lösche pytest.ini temporär
             rm -f pytest.ini
             # Führe Tests ohne Coverage aus
-            uv run pytest app/tests/ -v no:cov
+            uv run pytest app/tests/ -v 
           else
             echo "No backend tests found, skipping."
           fi
