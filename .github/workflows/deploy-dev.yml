@@ -51,7 +51,17 @@ jobs:
         run: |
           uv sync --dev
           uv pip install pytest-cov
-
+          
+      - name: Run database migrations
+        working-directory: ./backend
+        env:
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+        run: uv run alembic upgrade head
+        
       - name: Run backend tests
         working-directory: ./backend
         env:
