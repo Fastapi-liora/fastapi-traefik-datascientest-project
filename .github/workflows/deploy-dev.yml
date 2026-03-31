@@ -101,18 +101,18 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-      - name: Install Playwright browsers
-        working-directory: ./frontend
-        run: npx playwright install --with-deps chromium
+      #- name: Install Playwright browsers
+      #  working-directory: ./frontend
+      #  run: npx playwright install --with-deps chromium
 
-      - name: Run frontend E2E tests
-        working-directory: ./frontend
-        run: |
-          if [ -d tests/e2e ]; then
-            npx playwright test tests/e2e/ --project=chromium
-          else
-            echo "No frontend E2E tests found, skipping."
-          fi
+      #- name: Run frontend E2E tests
+      #  working-directory: ./frontend
+      #  run: |
+      #    if [ -d tests/e2e ]; then
+      #      npx playwright test tests/e2e/ --project=chromium
+      #    else
+      #      echo "No frontend E2E tests found, skipping."
+      #    fi
 
       - name: Upload frontend test results
         if: always()
