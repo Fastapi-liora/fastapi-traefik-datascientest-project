@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures.
+Pytest configuration and shared fixtures .
 This file is automatically loaded by pytest.
 """
 
