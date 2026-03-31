@@ -19,6 +19,21 @@ jobs:
   test:
     runs-on: self-hosted
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d app"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,13 +49,27 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
-          pip install pytest
+          pip install pytest pytest-cov
 
       - name: Run backend tests
         working-directory: ./backend
+        env:
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+          SMTP_HOST: "smtp.gmail.com"
+          SMTP_PORT: "587"
+          SMTP_USER: "test@example.com"
+          SMTP_PASSWORD: "test"
+          SMTP_TLS: "true"
+          EMAILS_FROM_EMAIL: "test@example.com"
+          EMAILS_FROM_NAME: "Test App"
+          EMAILS_ENABLED: "true"
         run: |
-          if [ -d tests ]; then
-            pytest
+          if [ -d app/tests ]; then
+            pytest app/tests/ -v --cov=app --cov-report=term
           else
             echo "No backend tests found, skipping."
           fi
