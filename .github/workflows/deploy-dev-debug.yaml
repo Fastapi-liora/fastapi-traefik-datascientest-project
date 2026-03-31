@@ -1,4 +1,4 @@
-name: Backend Test Debug 
+name: Backend Test Debug
 
 on:
   push:
@@ -41,19 +41,66 @@ jobs:
         working-directory: ./backend
         run: uv sync --dev
 
-      
-      - name: Run Mohamed user test only
+      # ============================================================
+      # Unit Tests (no database required)
+      # ============================================================
+      - name: Run Unit Tests
         working-directory: ./backend
         env:
           PROJECT_NAME: "FastAPI Debug"
           SECRET_KEY: "debug-secret-key"
           FIRST_SUPERUSER: "admin@example.com"
           FIRST_SUPERUSER_PASSWORD: "debugpassword123"
+        run: uv run pytest tests/unit/ -v -m unit
 
+      # ============================================================
+      # Integration Tests (with PostgreSQL)
+      # ============================================================
+      - name: Run Integration Tests
+        working-directory: ./backend
+        env:
+          PROJECT_NAME: "FastAPI Debug"
+          SECRET_KEY: "debug-secret-key"
+          FIRST_SUPERUSER: "admin@example.com"
+          FIRST_SUPERUSER_PASSWORD: "debugpassword123"
           POSTGRES_SERVER: "localhost"
           POSTGRES_PORT: "5433"
           POSTGRES_USER: "postgres"
           POSTGRES_PASSWORD: "postgres"
           POSTGRES_DB: "app"
+        run: uv run pytest tests/integration/ -v -m integration
 
-        run: uv run pytest tests/unit/test_users.py -v
+      # ============================================================
+      # All Tests with Coverage (including SMTP for email tests)
+      # ============================================================
+      - name: Run All Tests with Coverage
+        working-directory: ./backend
+        env:
+          PROJECT_NAME: "FastAPI Debug"
+          SECRET_KEY: "debug-secret-key"
+          FIRST_SUPERUSER: "admin@example.com"
+          FIRST_SUPERUSER_PASSWORD: "debugpassword123"
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+          # SMTP Variablen für E-Mail-Tests
+          SMTP_HOST: "smtp.gmail.com"
+          SMTP_PORT: "587"
+          SMTP_USER: "test@example.com"
+          SMTP_PASSWORD: "test"
+          SMTP_TLS: "true"
+          EMAILS_FROM_EMAIL: "test@example.com"
+          EMAILS_FROM_NAME: "Test App"
+          EMAILS_ENABLED: "true"
+        run: uv run pytest tests/ -v --cov=app --cov-report=term --cov-report=html
+
+      # ============================================================
+      # Upload Coverage Report as Artifact
+      # ============================================================
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/htmlcov/
