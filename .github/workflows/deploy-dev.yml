@@ -48,10 +48,8 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./backend
-        run: |
-          uv sync --dev
-          uv pip install pytest-cov
-          
+        run: uv sync --dev
+
       - name: Run database migrations
         working-directory: ./backend
         env:
@@ -61,7 +59,7 @@ jobs:
           POSTGRES_PASSWORD: "postgres"
           POSTGRES_DB: "app"
         run: uv run alembic upgrade head
-        
+
       - name: Run backend tests
         working-directory: ./backend
         env:
@@ -80,10 +78,7 @@ jobs:
           EMAILS_ENABLED: "true"
         run: |
           if [ -d app/tests ]; then
-            # Lösche pytest.ini temporär
-            rm -f pytest.ini
-            # Führe Tests ohne Coverage aus
-            uv run pytest app/tests/ -v 
+            uv run pytest app/tests/ -v
           else
             echo "No backend tests found, skipping."
           fi
