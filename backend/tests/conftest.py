@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures .
+Pytest configuration and shared fixtures.
 This file is automatically loaded by pytest.
 """
 
@@ -11,7 +11,9 @@ from typing import Generator
 from app.main import app
 from app.core.config import settings
 from app.core.db import engine
-from app.models import SQLModel, User
+from app.models import SQLModel
+from app.crud import create_user
+from app.schemas import UserCreate
 
 
 # ============================================================================
@@ -27,7 +29,7 @@ def db_engine():
 @pytest.fixture(scope="function")
 def db_session(db_engine) -> Generator[Session, None, None]:
     """Create a fresh database session for each test."""
-    # Create tables if they don't exist
+    # Optional: Create tables if they don't exist
     SQLModel.metadata.create_all(db_engine)
     
     with Session(db_engine) as session:
@@ -46,18 +48,18 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def authenticated_client(client, db_session) -> TestClient:
+def authenticated_client(client) -> TestClient:
     """Create an authenticated test client with a normal user."""
-    # Create a test user
-    user_data = {
-        "email": "testuser@example.com",
-        "password": "testpassword123",
-        "full_name": "Test User"
-    }
+    # First, create a test user
+    user_data = UserCreate(
+        email="testuser@example.com",
+        password="testpassword123",
+        full_name="Test User"
+    )
     
     response = client.post(
         f"{settings.API_V1_STR}/users/signup",
-        json=user_data
+        json=user_data.model_dump()
     )
     
     # Login to get token
@@ -76,6 +78,8 @@ def authenticated_client(client, db_session) -> TestClient:
 @pytest.fixture
 def superuser_client(client) -> TestClient:
     """Create an authenticated superuser client."""
+    # Note: You need to have a superuser in the database
+    # This fixture assumes FIRST_SUPERUSER exists
     response = client.post(
         f"{settings.API_V1_STR}/login/access-token",
         data={
@@ -134,15 +138,10 @@ def mock_email_service(monkeypatch):
 def create_test_user(db_session):
     """Factory fixture to create test users on demand."""
     def _create_user(email, password="testpass123", full_name="Test User"):
-        user = User(
+        user_data = UserCreate(
             email=email,
-            full_name=full_name,
-            hashed_password="fake_hash",  # Wird normalerweise gehasht
-            is_active=True,
-            is_superuser=False
+            password=password,
+            full_name=full_name
         )
-        db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
-        return user
+        return create_user(db_session, user_data)
     return _create_user

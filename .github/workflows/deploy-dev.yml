@@ -43,13 +43,22 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Install backend dependencies
         working-directory: ./backend
-        run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-          pip install pytest pytest-cov
+        run: uv sync --dev
+
+      - name: Run database migrations
+        working-directory: ./backend
+        env:
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+        run: uv run alembic upgrade head
 
       - name: Run backend tests
         working-directory: ./backend
@@ -65,11 +74,11 @@ jobs:
           SMTP_PASSWORD: "test"
           SMTP_TLS: "true"
           EMAILS_FROM_EMAIL: "test@example.com"
-          EMAILS_FROM_NAME: "Test App"
+          EMAILS_FROM_NAME: "test@example.com"
           EMAILS_ENABLED: "true"
         run: |
           if [ -d app/tests ]; then
-            pytest app/tests/ -v --cov=app --cov-report=term
+            uv run pytest app/tests/ -v
           else
             echo "No backend tests found, skipping."
           fi
@@ -91,6 +100,26 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         run: npm run build
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend E2E tests
+        working-directory: ./frontend
+        run: |
+          if [ -d tests/e2e ]; then
+            npx playwright test tests/e2e/ --project=chromium
+          else
+            echo "No frontend E2E tests found, skipping."
+          fi
+
+      - name: Upload frontend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/test-results/
 
   build-and-push:
     runs-on: self-hosted
