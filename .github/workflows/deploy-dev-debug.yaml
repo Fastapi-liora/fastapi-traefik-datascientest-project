@@ -1,4 +1,4 @@
-name: Backend Test Debug 
+name: Backend Test Debug
 
 on:
   push:
@@ -41,19 +41,45 @@ jobs:
         working-directory: ./backend
         run: uv sync --dev
 
-      
-      - name: Run Mohamed user test only
+      - name: Run Unit Tests (no database)
         working-directory: ./backend
         env:
           PROJECT_NAME: "FastAPI Debug"
           SECRET_KEY: "debug-secret-key"
           FIRST_SUPERUSER: "admin@example.com"
           FIRST_SUPERUSER_PASSWORD: "debugpassword123"
+        run: uv run pytest tests/unit/ -v -m unit
 
+      - name: Run Integration Tests (with database)
+        working-directory: ./backend
+        env:
+          PROJECT_NAME: "FastAPI Debug"
+          SECRET_KEY: "debug-secret-key"
+          FIRST_SUPERUSER: "admin@example.com"
+          FIRST_SUPERUSER_PASSWORD: "debugpassword123"
           POSTGRES_SERVER: "localhost"
           POSTGRES_PORT: "5433"
           POSTGRES_USER: "postgres"
           POSTGRES_PASSWORD: "postgres"
           POSTGRES_DB: "app"
+        run: uv run pytest tests/integration/ -v -m integration
 
-        run: uv run pytest tests/unit/test_users.py -v
+      - name: Run All Tests with Coverage
+        working-directory: ./backend
+        env:
+          PROJECT_NAME: "FastAPI Debug"
+          SECRET_KEY: "debug-secret-key"
+          FIRST_SUPERUSER: "admin@example.com"
+          FIRST_SUPERUSER_PASSWORD: "debugpassword123"
+          POSTGRES_SERVER: "localhost"
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_DB: "app"
+        run: uv run pytest tests/ -v --cov=app --cov-report=term --cov-report=html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/htmlcov/
