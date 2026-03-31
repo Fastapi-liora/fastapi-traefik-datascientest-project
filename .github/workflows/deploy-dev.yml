@@ -48,7 +48,9 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./backend
-        run: uv sync --dev
+        run: |
+          uv sync --dev
+          uv pip install pytest-cov
 
       - name: Run backend tests
         working-directory: ./backend
