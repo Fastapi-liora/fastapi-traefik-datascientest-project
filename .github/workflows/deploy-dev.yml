@@ -70,15 +70,10 @@ jobs:
           EMAILS_ENABLED: "true"
         run: |
           if [ -d app/tests ]; then
-            # Temporär pytest.ini umbenennen
-            if [ -f pytest.ini ]; then
-              mv pytest.ini pytest.ini.bak
-            fi
-            uv run pytest app/tests/ -v
-            # Wieder zurückbenennen
-            if [ -f pytest.ini.bak ]; then
-              mv pytest.ini.bak pytest.ini
-            fi
+            # Lösche pytest.ini temporär
+            rm -f pytest.ini
+            # Führe Tests ohne Coverage aus
+            uv run pytest app/tests/ -v --no-cov
           else
             echo "No backend tests found, skipping."
           fi
