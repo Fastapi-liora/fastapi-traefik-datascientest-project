@@ -64,7 +64,7 @@ jobs:
           SMTP_PASSWORD: "test"
           SMTP_TLS: "true"
           EMAILS_FROM_EMAIL: "test@example.com"
-          EMAILS_FROM_NAME: "Test App"
+          EMAILS_FROM_NAME: "test@example.com"
           EMAILS_ENABLED: "true"
         run: |
           if [ -d app/tests ]; then
