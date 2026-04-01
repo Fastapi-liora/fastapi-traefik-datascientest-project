@@ -1,32 +1,111 @@
-name: Deploy to Production
+name: Deploy Production
 
 on:
   release:
     types:
       - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DEPLOY_TARGET: kubernetes
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: fastapi-liora
+  BACKEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-backend
+  FRONTEND_IMAGE: ghcr.io/fastapi-liora/fastapi-traefik-datascientest-project-frontend
+  K8S_ENV: prod
 
 jobs:
-  deploy:
-    # Do not deploy in the main repository, only in user projects
-    if: github.repository_owner != 'fastapi'
+  build-and-push:
     runs-on:
       - self-hosted
       - production
-    env:
-      ENVIRONMENT: production
-      DOMAIN: ${{ secrets.DOMAIN_PRODUCTION }}
-      STACK_NAME: ${{ secrets.STACK_NAME_PRODUCTION }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
-      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
-      SMTP_HOST: ${{ secrets.SMTP_HOST }}
-      SMTP_USER: ${{ secrets.SMTP_USER }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      EMAILS_FROM_EMAIL: ${{ secrets.EMAILS_FROM_EMAIL }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - run: docker compose -f docker-compose.yml --project-name ${{ secrets.STACK_NAME_PRODUCTION }} build
-      - run: docker compose -f docker-compose.yml --project-name ${{ secrets.STACK_NAME_PRODUCTION }} up -d
+
+      - name: Set image tag
+        id: meta
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+          else
+            TAG="${GITHUB_SHA::7}"
+          fi
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build backend image
+        run: docker build -t $BACKEND_IMAGE:${{ steps.meta.outputs.image_tag }} ./backend
+
+      - name: Build frontend image
+        run: docker build -t $FRONTEND_IMAGE:${{ steps.meta.outputs.image_tag }} ./frontend
+
+      - name: Push backend image
+        run: docker push $BACKEND_IMAGE:${{ steps.meta.outputs.image_tag }}
+
+      - name: Push frontend image
+        run: docker push $FRONTEND_IMAGE:${{ steps.meta.outputs.image_tag }}
+
+  approval-gate:
+    name: Production Approval Gate
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: production
+    steps:
+      - name: Await manual approval
+        run: echo "Deployment to production approved via GitHub Environment reviewers."
+
+  deploy-prod:
+    runs-on:
+      - self-hosted
+      - production
+    needs:
+      - build-and-push
+      - approval-gate
+    environment:
+      name: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          printf '%s' "${{ secrets.KUBECONFIG_PROD }}" > $HOME/.kube/config-ci
+          chmod 600 $HOME/.kube/config-ci
+          echo "KUBECONFIG=$HOME/.kube/config-ci" >> $GITHUB_ENV
+
+      - name: Apply prod manifests
+        run: kubectl apply -f k8s/${K8S_ENV}
+
+      - name: Update backend image in deployment
+        run: |
+          kubectl set image deployment/backend \
+            backend=$BACKEND_IMAGE:${{ needs.build-and-push.outputs.image_tag }} \
+            -n ${K8S_ENV}
+
+      - name: Update frontend image in deployment
+        run: |
+          kubectl set image deployment/frontend \
+            frontend=$FRONTEND_IMAGE:${{ needs.build-and-push.outputs.image_tag }} \
+            -n ${K8S_ENV}
+
+      - name: Wait for backend rollout
+        run: kubectl rollout status deployment/backend -n ${K8S_ENV} --timeout=300s
+
+      - name: Wait for frontend rollout
+        run: kubectl rollout status deployment/frontend -n ${K8S_ENV} --timeout=300s

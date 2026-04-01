@@ -2,20 +2,20 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
-  namespace: dev
+  namespace: prod
   labels:
     app.kubernetes.io/name: fastapi-traefik-datascientest-project
     app.kubernetes.io/component: backend
     app.kubernetes.io/part-of: platform
-    app.kubernetes.io/environment: dev
+    app.kubernetes.io/environment: prod
     app.kubernetes.io/managed-by: github-actions
 data:
-  ENVIRONMENT: "development"
-  DOMAIN: "dev.fastapi.local"
-  PROJECT_NAME: "FastAPI Project Dev"
+  ENVIRONMENT: "production"
+  DOMAIN: "api.example.com"
+  PROJECT_NAME: "FastAPI Project Production"
   FIRST_SUPERUSER: "admin@example.com"
-  BACKEND_CORS_ORIGINS: "http://localhost:8080,http://localhost:8081,https://dev.fastapi.local"
-  POSTGRES_SERVER: "db-dev"
+  BACKEND_CORS_ORIGINS: "https://app.example.com,https://api.example.com"
+  POSTGRES_SERVER: "db-prod"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "app"
   POSTGRES_USER: "postgres"

@@ -2,19 +2,24 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app-ingress
-  namespace: dev
+  namespace: prod
   labels:
     app.kubernetes.io/name: fastapi-traefik-datascientest-project
     app.kubernetes.io/component: edge
     app.kubernetes.io/part-of: platform
-    app.kubernetes.io/environment: dev
+    app.kubernetes.io/environment: prod
     app.kubernetes.io/managed-by: github-actions
   annotations:
     kubernetes.io/ingress.class: traefik
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-example-com-tls
   rules:
-    - host: dev.fastapi.local
+    - host: app.example.com
       http:
         paths:
           - path: /api
