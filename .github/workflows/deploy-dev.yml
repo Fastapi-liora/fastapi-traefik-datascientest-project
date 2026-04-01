@@ -191,7 +191,7 @@ jobs:
         run: kubectl rollout status deployment/backend -n ${K8S_ENV} --timeout=180s
 
       - name: Wait for frontend rollout
-run: kubectl rollout status deployment/frontend -n ${K8S_ENV} --timeout=180s
+        run: kubectl rollout status deployment/frontend -n ${K8S_ENV} --timeout=180s
 
       - name: Final resource check
         if: always()
