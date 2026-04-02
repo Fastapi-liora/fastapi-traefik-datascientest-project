@@ -228,11 +228,11 @@ jobs:
 
       - name: Wait for backend rollout
         run: |
-          kubectl rollout status deployment/backend -n dev --timeout=180s
+          kubectl rollout status deployment/backend -n dev --timeout=300s
 
       - name: Wait for frontend rollout
         run: |
-          kubectl rollout status deployment/frontend -n dev --timeout=180s
+          kubectl rollout status deployment/frontend -n dev --timeout=300s
 
       - name: Final resource check
         if: always()
