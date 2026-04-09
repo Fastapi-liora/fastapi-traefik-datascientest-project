@@ -1,239 +1,161 @@
-# Full Stack FastAPI  ---
+# FastAPI Full Stack DevOps Project
 
-<a href="https://github.com/fastapi/full-stack-fastapi-template/actions?query=workflow%3ATest" target="_blank"><img src="https://github.com/fastapi/full-stack-fastapi-template/workflows/Test/badge.svg" alt="Test"></a>
-<a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/fastapi/full-stack-fastapi-template" target="_blank"><img src="https://coverage-badge.samuelcolvin.workers.dev/fastapi/full-stack-fastapi-template.svg" alt="Coverage"></a>
+## Project Overview
 
-## Technology Stack and Features
+This project is a full-stack web application designed to simulate a production-ready software delivery environment using modern DevOps and cloud engineering practices.
 
-- ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
-    - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
-    - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
-    - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
-- 🚀 [React](https://react.dev) for the frontend.
-    - 💃 Using TypeScript, hooks, Vite, and other parts of a modern frontend stack.
-    - 🎨 [Chakra UI](https://chakra-ui.com) for the frontend components.
-    - 🤖 An automatically generated frontend client.
-    - 🧪 [Playwright](https://playwright.dev) for End-to-End testing.
-    - 🦇 Dark mode support.
-- 🐋 [Docker Compose](https://www.docker.com) for development and production.
-- 🔒 Secure password hashing by default.
-- 🔑 JWT (JSON Web Token) authentication.
-- 📫 Email based password recovery.
-- ✅ Tests with [Pytest](https://pytest.org).
-- 📞 [Traefik](https://traefik.io) as a reverse proxy / load balancer.
-- 🚢 Deployment instructions using Docker Compose, including how to set up a frontend Traefik proxy to handle automatic HTTPS certificates.
-- 🏭 CI (continuous integration) and CD (continuous deployment) based on GitHub Actions.
+The platform includes a FastAPI backend, React frontend, PostgreSQL database, containerization with Docker, orchestration with Kubernetes, CI/CD automation, infrastructure provisioning, monitoring, and security best practices.
 
-### Dashboard Login
+---
 
-[![API docs](img/login.png)](https://github.com/fastapi/full-stack-fastapi-template)
+## Architecture Overview
 
-### Dashboard - Admin
+The application consists of the following core components:
 
-[![API docs](img/dashboard.png)](https://github.com/fastapi/full-stack-fastapi-template)
+* **Backend:** FastAPI-based REST API
+* **Frontend:** React / TypeScript frontend application
+* **Database:** PostgreSQL relational database
+* **Containerization:** Docker images stored in GitHub Container Registry (GHCR)
+* **Container Orchestration:** Kubernetes running on Minikube
+* **Monitoring:** Prometheus + Grafana
+* **Infrastructure:** Proxmox VM provisioned with Terraform / Ansible
 
-### Dashboard - Create User
+---
 
-[![API docs](img/dashboard-create.png)](https://github.com/fastapi/full-stack-fastapi-template)
+## Kubernetes Deployment
 
-### Dashboard - Items
+The application is deployed and managed using Kubernetes on a Minikube cluster.
 
-[![API docs](img/dashboard-items.png)](https://github.com/fastapi/full-stack-fastapi-template)
+### Environment Separation
 
-### Dashboard - User Settings
+Two isolated namespaces are used:
 
-[![API docs](img/dashboard-user-settings.png)](https://github.com/fastapi/full-stack-fastapi-template)
+* **dev** – Development environment
+* **prod** – Production environment
 
-### Dashboard - Dark Mode
+### Kubernetes Components
 
-[![API docs](img/dashboard-dark.png)](https://github.com/fastapi/full-stack-fastapi-template)
+Each application layer runs independently as a Kubernetes Deployment:
 
-### Interactive API Documentation
+* Backend Deployment
+* Frontend Deployment
+* PostgreSQL Deployment
 
-[![API docs](img/docs.png)](https://github.com/fastapi/full-stack-fastapi-template)
+Kubernetes Services provide internal communication between application components.
 
-## How To Use It
+Traefik is used as the ingress controller for external traffic routing into the cluster.
 
-You can **just fork or clone** this repository and use it as is.
+---
 
-✨ It just works. ✨
+## CI/CD Pipeline
 
-### How to Use a Private Repository
+Deployment and testing are fully automated using GitHub Actions.
 
-If you want to have a private repository, GitHub won't allow you to simply fork it as it doesn't allow changing the visibility of forks.
+### Pipeline Process
 
-But you can do the following:
+1. Developer pushes code to repository
+2. Automated tests are triggered
+3. Docker images are built
+4. Images are pushed to GitHub Container Registry
+5. Kubernetes deployments are updated automatically
 
-- Create a new GitHub repo, for example `my-full-stack`.
-- Clone this repository manually, set the name with the name of the project you want to use, for example `my-full-stack`:
+### Deployment Strategy
 
-```bash
-git clone git@github.com:fastapi/full-stack-fastapi-template.git my-full-stack
-```
+* Push to **dev** branch triggers development deployment
+* Push/manual trigger for **main/prod** triggers production deployment
 
-- Enter into the new directory:
+---
 
-```bash
-cd my-full-stack
-```
+## Security Measures
 
-- Set the new origin to your new repository, copy it from the GitHub interface, for example:
+Security has been implemented across multiple layers of the project.
 
-```bash
-git remote set-url origin git@github.com:octocat/my-full-stack.git
-```
+### Secret Management
 
-- Add this repo as another "remote" to allow you to get updates later:
+* Sensitive runtime configuration is managed using **Kubernetes Secrets**
+* GitHub repository secrets secure deployment credentials and cluster access
 
-```bash
-git remote add upstream git@github.com:fastapi/full-stack-fastapi-template.git
-```
+### Secure CI/CD
 
-- Push the code to your new repository:
+* No hard-coded credentials in workflow files
+* GitHub Secrets are used for secure secret injection
 
-```bash
-git push -u origin master
-```
+### Dependency Monitoring
 
-### Update From the Original Template
+* **GitHub Dependabot** monitors dependencies for outdated or vulnerable packages
+* Covers:
 
-After cloning the repository, and after doing changes, you might want to get the latest changes from this original template.
+  * GitHub Actions
+  * Python dependencies
+  * npm packages
+  * Docker dependencies
 
-- Make sure you added the original repository as a remote, you can check it with:
+---
 
-```bash
-git remote -v
+## Monitoring & Observability
 
-origin    git@github.com:octocat/my-full-stack.git (fetch)
-origin    git@github.com:octocat/my-full-stack.git (push)
-upstream    git@github.com:fastapi/full-stack-fastapi-template.git (fetch)
-upstream    git@github.com:fastapi/full-stack-fastapi-template.git (push)
-```
+System health and performance are monitored using:
 
-- Pull the latest changes without merging:
+* **Prometheus** for metrics collection
+* **Grafana** for dashboards and visualization
 
-```bash
-git pull --no-commit upstream master
-```
+Metrics collected include:
 
-This will download the latest changes from this template without committing them, that way you can check everything is right before committing.
+* Node / VM metrics
+* Kubernetes pod/container metrics
+* Application performance metrics
 
-- If there are conflicts, solve them in your editor.
+---
 
-- Once you are done, commit the changes:
+## Infrastructure as Code
 
-```bash
-git merge --continue
-```
+The virtual machine infrastructure is provisioned using Infrastructure as Code principles.
 
-### Configure
+### Tools Used
 
-You can then update configs in the `.env` files to customize your configurations.
+* **Terraform** – VM provisioning / infrastructure setup
+* **Ansible** – Configuration management / automation
 
-Before deploying it, make sure you change at least the values for:
+The application is hosted on a Proxmox virtual machine environment.
 
-- `SECRET_KEY`
-- `FIRST_SUPERUSER_PASSWORD`
-- `POSTGRES_PASSWORD`
+---
 
-You can (and should) pass these as environment variables from secrets.
+## Project Goal
 
-Read the [deployment.md](./deployment.md) docs for more details.
+The goal of this project is to demonstrate a production-style MVP deployment pipeline and infrastructure setup using modern DevOps practices.
 
-### Generate Secret Keys
+While Minikube is primarily intended for development/testing, this setup simulates a production-like Kubernetes environment for learning and portfolio purposes.
 
-Some environment variables in the `.env` file have a default value of `changethis`.
+---
 
-You have to change them with a secret key, to generate secret keys you can run the following command:
+## Future Improvements
 
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+Potential future enhancements include:
 
-Copy the content and use that as password / secret key. And run that again to generate another secure key.
+* HTTPS / TLS termination
+* Extended Kubernetes RBAC configuration
+* Advanced vulnerability scanning (e.g. Trivy)
+* Horizontal pod autoscaling
+* Multi-node Kubernetes cluster
 
-## How To Use It - Alternative With Copier
+---
 
-This repository also supports generating a new project using [Copier](https://copier.readthedocs.io).
+## Technology Stack Summary
 
-It will copy all the files, ask you configuration questions, and update the `.env` files with your answers.
+| Layer          | Technology                    |
+| -------------- | ----------------------------- |
+| Backend        | FastAPI / Python              |
+| Frontend       | React / TypeScript            |
+| Database       | PostgreSQL                    |
+| Containers     | Docker                        |
+| Registry       | GitHub Container Registry     |
+| Orchestration  | Kubernetes / Minikube         |
+| CI/CD          | GitHub Actions                |
+| Monitoring     | Prometheus / Grafana          |
+| Infrastructure | Proxmox / Terraform / Ansible |
 
-### Install Copier
+---
 
-You can install Copier with:
+## Authors
 
-```bash
-pip install copier
-```
-
-Or better, if you have [`pipx`](https://pipx.pypa.io/), you can run it with:
-
-```bash
-pipx install copier
-```
-
-**Note**: If you have `pipx`, installing copier is optional, you could run it directly.
-
-### Generate a Project With Copier
-
-Decide a name for your new project's directory, you will use it below. For example, `my-awesome-project`.
-
-Go to the directory that will be the parent of your project, and run the command with your project's name:
-
-```bash
-copier copy https://github.com/fastapi/full-stack-fastapi-template my-awesome-project --trust
-```
-
-If you have `pipx` and you didn't install `copier`, you can run it directly:
-
-```bash
-pipx run copier copy https://github.com/fastapi/full-stack-fastapi-template my-awesome-project --trust
-```
-
-**Note** the `--trust` option is necessary to be able to execute a [post-creation script](https://github.com/fastapi/full-stack-fastapi-template/blob/master/.copier/update_dotenv.py) that updates your `.env` files.
-
-### Input Variables
-
-Copier will ask you for some data, you might want to have at hand before generating the project.
-
-But don't worry, you can just update any of that in the `.env` files afterwards.
-
-The input variables, with their default values (some auto generated) are:
-
-- `project_name`: (default: `"FastAPI Project"`) The name of the project, shown to API users (in .env).
-- `stack_name`: (default: `"fastapi-project"`) The name of the stack used for Docker Compose labels and project name (no spaces, no periods) (in .env).
-- `secret_key`: (default: `"changethis"`) The secret key for the project, used for security, stored in .env, you can generate one with the method above.
-- `first_superuser`: (default: `"admin@example.com"`) The email of the first superuser (in .env).
-- `first_superuser_password`: (default: `"changethis"`) The password of the first superuser (in .env).
-- `smtp_host`: (default: "") The SMTP server host to send emails, you can set it later in .env.
-- `smtp_user`: (default: "") The SMTP server user to send emails, you can set it later in .env.
-- `smtp_password`: (default: "") The SMTP server password to send emails, you can set it later in .env.
-- `emails_from_email`: (default: `"info@example.com"`) The email account to send emails from, you can set it later in .env.
-- `postgres_password`: (default: `"changethis"`) The password for the PostgreSQL database, stored in .env, you can generate one with the method above.
-- `sentry_dsn`: (default: "") The DSN for Sentry, if you are using it, you can set it later in .env.
-
-## Backend Development
-
-Backend docs: [backend/README.md](./backend/README.md).
-
-## Frontend Development
-
-Frontend docs: [frontend/README.md](./frontend/README.md).
-
-## Deployment
-
-Deployment docs: [deployment.md](./deployment.md).
-
-## Development
-
-General development docs: [development.md](./development.md).
-
-This includes using Docker Compose, custom local domains, `.env` configurations, etc.
-
-## Release Notes
-
-Check the file [release-notes.md](./release-notes.md).
-
-## License
-
-The Full Stack FastAPI Template is licensed under the terms of the MIT license.
+Developed as part of a Data Engineering / DevOps Engineering training project.
